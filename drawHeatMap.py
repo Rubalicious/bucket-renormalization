@@ -34,15 +34,26 @@ def drawProbabilityHeatmap(passedFileName,tractUVCoords,rawSeattleImage,initInfe
         for h in H_a:
             for m in mu:
                 for t in TAU:
-                    numPlots=numPlots+1
+                    numPlots = numPlots + 1
+
 
     if numPlots<=5:
         fig, mainAxe = plt.subplots(figsize=(19.20, 4.6), constrained_layout=True)
         mainAxe.set_visible(False)
         if len(initInfection) > 1:
-            fig.suptitle('Marginal Probabilities' + r' $\tau$' + '=' + t, fontsize=16)
+            if len(t)>0:
+                fig.suptitle('Marginal Probabilities' + r' $\tau$' + '=' + t, fontsize=16)
+            else:
+                fig.suptitle('Marginal Probabilities', fontsize=16)
         else:
-            fig.suptitle('Marginal Probabilities initial infection=[' + initInfection[0] + ']' + r' $\tau$' + '=' + t, fontsize=16)
+            if len(t)>0:
+                fig.suptitle(
+                    'Marginal Probabilities initial infection=[' + initInfection[0] + ']' + r' $\tau$' + '=' + t,
+                    fontsize=16)
+            else:
+                fig.suptitle(
+                    'Marginal Probabilities initial infection=[' + initInfection[0] + ']',
+                    fontsize=16)
         gs = GridSpec(1, numPlots, figure=fig)
 
         c = mcolors.ColorConverter().to_rgb
@@ -141,9 +152,20 @@ def drawProbabilityHeatmap(passedFileName,tractUVCoords,rawSeattleImage,initInfe
         fig, mainAxe = plt.subplots(figsize=(19.20, 10), constrained_layout=True)
         mainAxe.set_visible(False)
         if len(initInfection) > 1:
-            fig.suptitle('Marginal Probabilities' + r' $\tau$' + '=' + t, fontsize=16)
+            if len(t)>0:
+                fig.suptitle('Marginal Probabilities' + r' $\tau$' + '=' + t, fontsize=16)
+            else:
+                fig.suptitle('Marginal Probabilities', fontsize=16)
         else:
-            fig.suptitle('Marginal Probabilities initial infection=[' + initInfection[0] + ']' + r' $\tau$' + '=' + t, fontsize=16)
+            if len(t)>0:
+                fig.suptitle(
+                    'Marginal Probabilities initial infection=[' + initInfection[0] + ']' + r' $\tau$' + '=' + t,
+                    fontsize=16)
+            else:
+                fig.suptitle(
+                    'Marginal Probabilities initial infection=[' + initInfection[0] + ']',
+                    fontsize=16)
+
         maxRows = 3
         maxColumn=4
         gs = GridSpec(math.ceil(numPlots/maxColumn), maxColumn, figure=fig)
@@ -246,10 +268,10 @@ def drawProbabilityHeatmap(passedFileName,tractUVCoords,rawSeattleImage,initInfe
                                             linewidth=1))
 
 
-                        counterR=counterR+1
-                        if counterR>=maxRows:
-                            counterC=counterC+1
-                            counterR=0
+                        counterC=counterC+1
+                        if counterC>=maxColumn:
+                            counterR=counterR+1
+                            counterC=0
 
                         counterP = counterP + 1
     else:
@@ -275,18 +297,45 @@ def renormalizeProbability(input):
     output=pd.DataFrame()
     max_value=0
     min_value=1000000
-    for i in range(input.shape[0]):  # TEST RANDOM PROBABILITIES
-        if input.iloc[i][1]<min_value:
-            min_value=input.iloc[i][1]
-        if input.iloc[i][1]>max_value:
-            max_value=input.iloc[i][1]
-    for i in range(input.shape[0]):  # TEST RANDOM PROBABILITIES
-        output[str(i)] = np.array([1-(input.iloc[i][1]-min_value)/(max_value-min_value)])
+    avgNumbers=[]
+    for i in range(input.shape[0]):
+        if input.iloc[i][0].isnumeric():
+            if input.iloc[i][1].isnumeric():
+                if input.iloc[i][1] < min_value:
+                    min_value = input.iloc[i][1]
+                if input.iloc[i][1] > max_value:
+                    max_value = input.iloc[i][1]
+            else:
+                nums = input.iloc[i]['P'].strip('][').split(' ')
+                avgNum = float(nums[0]) + float(nums[1]) / 2
+                if avgNum < min_value:
+                    min_value = avgNum
+                if avgNum > max_value:
+                    max_value = avgNum
+                avgNumbers.append(avgNum)
+
+    for i in range(input.shape[0]):
+        if input.iloc[i][0].isnumeric():
+            if input.iloc[i][1].isnumeric():
+                output[str(i)] = np.array([1 - (input.iloc[i][1] - min_value) / (max_value - min_value)])
+            else:
+                if (max_value - min_value) != 0:
+                    output[str(i)] = np.array([1 - (avgNumbers[i] - min_value) / (max_value - min_value)])
+                else:
+                    output[str(i)] = np.array([1 - avgNumbers[i]])
+
     return output
 
+def getRevisedUVCoords(input,tractUVCoords):
+    output = pd.DataFrame()
+    for i in range(input.shape[0]):
+        if input.iloc[i][0].isnumeric():
+            output[str(i)] = tractUVCoords.iloc[int(input.iloc[i][0])]
 
-tractUVCoords = pd.read_csv('./seattle/tractUVCoordinates.csv')#GIS DATA WHICH SHOULD BE READ ONCE AND USED MULTIPLE TIMES
-rawSeattleImage=mpimg.imread('./seattle/SeattleRawImage1.png')#GIS DATA WHICH SHOULD BE READ ONCE AND USED MULTIPLE TIMES
+    return output.transpose()
+
+tractUVCoords = pd.read_csv('./seattle/seattle_UV_coordinates.csv')#GIS DATA WHICH SHOULD BE READ ONCE AND USED MULTIPLE TIMES
+rawSeattleImage=mpimg.imread('./seattle/SeattleRawImage2.png')#GIS DATA WHICH SHOULD BE READ ONCE AND USED MULTIPLE TIMES
 
 
 # initInfection=['52']
@@ -307,36 +356,59 @@ rawSeattleImage=mpimg.imread('./seattle/SeattleRawImage1.png')#GIS DATA WHICH SH
 # drawProbabilityHeatmap(test_name,tractUVCoords,rawSeattleImage,initInfection,H_a,mu,tau,probabilities)
 
 
-initInfection=['0']
-H_a=['0.0','0.1','0.5','1.0']
-mu=['0.001','0.0015','0.002']
-tau=['120.0']
+initInfection=['81']
+H_a=['0.1']
+mu=['1e-05','0.0001','0.001','0.002','0.01','0.1']
+tau=['']
 probabilities=[]
+temp=[]
 for i in initInfection:
     for h in H_a:
         for m in mu:
             for t in tau:
-                file_name='./results/seattle_marg_prob_init_inf=['+i+']_H_a='+h+'_MU='+m+'_TAU='+t+'.csv'
+                file_name='./results_BP_and_MF_comparison/BP_seattle_marg_prob_init_inf=['+i+']_H_a='+h+'_MU='+m+'.csv'
                 temp=pd.read_csv(file_name)
-                temp = renormalizeProbability(temp)
-                probabilities.append(temp)
+                temp1 = renormalizeProbability(temp)
+                probabilities.append(temp1)
 
-test_name = "./results/seattle_heatmap_init_inf=[0]_H_a=[0.0,0.1,0.5]_MU_[0.001,0.0015,0.002]_TAU_[120]"
-drawProbabilityHeatmap(test_name,tractUVCoords,rawSeattleImage,initInfection,H_a,mu,tau,probabilities)
+revisedTractUVCoords=getRevisedUVCoords(temp,tractUVCoords)
+test_name = "./results_BP_and_MF_comparison/BP_seattle_heatmap_init_inf=[81]_H_a=[0.1]_MU_[1e-05,0.0001,0.001,0.002,0.01,0.1]_TAU_[]"
+drawProbabilityHeatmap(test_name,revisedTractUVCoords,rawSeattleImage,initInfection,H_a,mu,tau,probabilities)
 
-initInfection=['52']
-H_a=['0.0','0.1','0.5','1.0']
-mu=['0.001','0.0015','0.002']
-tau=['120.0']
+initInfection=['81']
+H_a=['0.1']
+mu=['1e-05','0.0001','0.001','0.002','0.01','0.1']
+tau=['']
 probabilities=[]
+temp=[]
 for i in initInfection:
     for h in H_a:
         for m in mu:
             for t in tau:
-                file_name='./results/seattle_marg_prob_init_inf=['+i+']_H_a='+h+'_MU='+m+'_TAU='+t+'.csv'
+                file_name='./results_BP_and_MF_comparison/MF_seattle_marg_prob_init_inf=['+i+']_H_a='+h+'_MU='+m+'.csv'
                 temp=pd.read_csv(file_name)
-                temp = renormalizeProbability(temp)
-                probabilities.append(temp)
+                temp1 = renormalizeProbability(temp)
+                probabilities.append(temp1)
 
-test_name = "./results/seattle_heatmap_init_inf=[52]_H_a=[0.0,0.1,0.5]_MU_[0.001,0.0015,0.002]_TAU_[120]"
-drawProbabilityHeatmap(test_name,tractUVCoords,rawSeattleImage,initInfection,H_a,mu,tau,probabilities)
+revisedTractUVCoords=getRevisedUVCoords(temp,tractUVCoords)
+test_name = "./results_BP_and_MF_comparison/MF_seattle_heatmap_init_inf=[81]_H_a=[0.1]_MU_[1e-05,0.0001,0.001,0.002,0.01,0.1]_TAU_[]"
+drawProbabilityHeatmap(test_name,revisedTractUVCoords,rawSeattleImage,initInfection,H_a,mu,tau,probabilities)
+
+initInfection=['81']
+H_a=['0.1']
+mu=['0.0001','0.00014736842105263158','0.00019473684210526317','0.00024210526315789473','0.00028947368421052634','0.0003368421052631579','0.00038421052631578946','0.0004315789473684211','0.00047894736842105264']
+tau=['']
+probabilities=[]
+temp=[]
+for i in initInfection:
+    for h in H_a:
+        for m in mu:
+            for t in tau:
+                file_name='./results_transition/BP_seattle_marg_prob_init_inf=['+i+']_H_a='+h+'_MU='+m+'.csv'
+                temp=pd.read_csv(file_name)
+                temp1 = renormalizeProbability(temp)
+                probabilities.append(temp1)
+
+revisedTractUVCoords=getRevisedUVCoords(temp,tractUVCoords)
+test_name = "./results_transition/BP_seattle_heatmap_init_inf=[81]_H_a=[0.1]_MU_[1e-05,0.0001,0.001,0.002,0.01,0.1]_TAU_[]"
+drawProbabilityHeatmap(test_name,revisedTractUVCoords,rawSeattleImage,initInfection,H_a,mu,tau,probabilities)
