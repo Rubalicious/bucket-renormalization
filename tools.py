@@ -10,7 +10,6 @@ import protocols
 import utils
 import networkx as nx
 import matplotlib.pyplot as plt
-from gmi import GMI
 import pandas as pd
 from graphical_model import *
 from factor import *
@@ -38,96 +37,63 @@ def time_it(func):
         print('time taken: {}'.format(t2-t1))
     return wrapper
 
-def extract_data(case, MU=0.002, center = 81, clique_width=100):
+def extract_data_top20(case, MU=0.002):
+    # Read Data
+    data = pd.read_csv('./{}/{}_top20_travel_numbers.csv'.format(case, case), header=None).values[1:]
+    int_data = []
+    for row in data:
+        int_data.append([int(entry) for entry in row])
+    data = np.array(int_data)
+
+    # alternate way of estimating J
+    J = -data*np.log(1-MU)
+    return J
+
+def extract_data(case, MU=0.002):
     # Read Data
     data = pd.read_csv('./{}/{}_travel_numbers.csv'.format(case, case), header=None).values
+    print(data)
+    # estimating J
+    J = -data*np.log(1-MU)
+    print(J)
+    # MU = 1-np.exp(-J/np.max(data))
 
-    min = np.max([center-clique_width, 0])
-
-    max = np.min([center+clique_width+1, len(data)])
-    data = data[min:max,min:max]
-    # print(min, max, np.shape(data))
-    # quit()
-    # g_raw = rawnumbers/MU
-    # J_raw = np.log(1+np.exp(g_raw))/2
-
-    # alternate way of estimating J_raw
-    J_raw = -data*np.log(1-MU)
-    # print(np.max(J_raw))
-    # quit()
-
-    # MU = 1-np.exp(-J_raw/np.max(data))
-
-    minJ = np.round(np.min(J_raw), 5)
-    maxJ = np.round(np.max(J_raw), 5)
-
-    summary = pd.read_csv('./{}/{}_GIS_data.csv'.format(case, case))[min:max]
-    # Create Graph
-    G = nx.Graph()
-    pos = {}
-    # add nodes
-    row_num = min
-    # print(list(range(min, max)))
-    for row in summary.iterrows():
-        if row_num in list(range(min, max)):
-            G.add_node(row[0],
-                       Tract=row[1]['Tract'],
-                       # Sus=row[1]['Sus'],
-                       # Inf=row[1]['Inf'],
-                       # Symp=row[1]['Symp'],
-                       # RecoveredCalc=row[1]['RecoveredCalc'],
-                       Lat=row[1]['Lat'],
-                       Lon=row[1]['Lon'],
-                       Population=row[1]['Population'],
-                       Density=row[1]['Density per acre']
-            )
-            pos[row[0]] = [row[1]['Lat'], row[1]['Lon']]
-        row_num+=1
-
-    # add edges
-    count = 0
-    for row in data:
-        # sort the number of people in descending order and collect their indices
-        # indices = np.argsort(row)[::-1]
-
-        # exclude edges between nodes and themselves
-        for idx, entry in enumerate(row):
-            if count != idx:
-                G.add_edge(min+count, min+idx, weight=J_raw[count][idx])
-        count+=1
-    return G
+    minJ = np.round(np.min(J), 5)
+    maxJ = np.round(np.max(J), 5)
+    return J
 
 def ith_object_name(prefix, i):
     return prefix + str(int(i))
 def ijth_object_name(prefix, i,j):
     return prefix + '(' + str(int(i)) + ',' + str(int(j)) + ')'
 
-def generate_graphical_model(case, G, init_inf, H_a, condition_on_init_inf=True):
+def generate_graphical_model(case, J, init_inf, H_a, condition_on_init_inf=True):
     '''
     This is done in 3 steps:
         1) add all variable names to the GM
-        2) add all factors to the GM
+        2) add all 2-factors to the GM
         3) add 1-factors to each variable
     '''
     # A collection of factors
     model = GraphicalModel()
 
-    for node in G.nodes:
-        model.add_variable(ith_object_name('V', node))
+    # first define variable names:
+    model.add_variables_from( [ith_object_name('V', node) for node in range(len(J))] )
 
-    # define factors
-    for a,b in G.edges:
-        Jab = G[a][b]['weight']
-        log_values = np.array([Jab, -Jab, -Jab, Jab]).reshape([2,2])
-        factor = Factor(
-            name = ijth_object_name('F', a, b),
-            variables = [ith_object_name('V', a), ith_object_name('V', b)],
-            log_values = log_values)
-        model.add_factor(factor)
+    # define interaction strength factors
+    for i in range(len(J)):
+        for j in range(i+1, len(J)):
+            Jab = J[i,j]
+            log_values = np.array([Jab, -Jab, -Jab, Jab]).reshape([2,2])
+            factor = Factor(
+                name = ijth_object_name('F', i, j),
+                variables = [ith_object_name('V', i), ith_object_name('V', j)],
+                log_values = log_values)
+            model.add_factor(factor)
 
-    # define magentic fields
-    for node in G.nodes:
-        h_a = H_a
+    # define magnetic fields
+    for node in range(len(J)):
+        h_a = -H_a
         log_values = np.array([-h_a, h_a])
         factor = Factor(
             name = ith_object_name('B', node),
@@ -143,26 +109,9 @@ def generate_graphical_model(case, G, init_inf, H_a, condition_on_init_inf=True)
 
     return model
 
-def threshold_GM(model, TAU, in_place = True):
-    '''
-        Tau is a percentage of the maximum J value
-        which we use as a minimum threshold to keep an edge or not
-    '''
-    copy = model if inplace else model.copy()
-
-    interactions = [fac.log_values[1] for fac in copy.factors if 'F' in fac.name]
-    maxJ = np.max(interactions)
-    for fac in copy.factors:
-        if 'F' in fac.name and fac.log_values[1] <= Tau*maxJ:
-            # get rid of the factor
-            copy.remove_factor(fac)
-
-    if not in_place:
-        return copy
-
 def get_neighbor_factors_of(model, var):
     '''
-        Returns a list of B-factors of a given variable var in the GM model
+        Returns a list of 1-factors of a given variable var in the GM model
     '''
     adj_factors = model.get_adj_factors(var) # adj_factors contains a B factor and neighboring F factors
     factors = [fac for fac in adj_factors if 'F' in fac.name] # factors contains only F factors
@@ -185,9 +134,9 @@ def get_neighbor_factors_of(model, var):
 
 def update_MF_of_neighbors_of(model, var):
     '''
-        This modifies the GM 'copy' by
-        1) removing the var variable and associated edges
-        2) updating the magnetic field of neighbors of variable var
+        This modifies the GM 'model' by
+        1) updating the magnetic field of neighbors of variable 'var'
+        2) removing the 'var' variable and associated edges
     '''
     # print('getting neighbors of {}'.format(var))
     # print('node {} has {} neighbors'.format(var, model.degree(var)-1))
@@ -198,12 +147,11 @@ def update_MF_of_neighbors_of(model, var):
     adj_factors = model.get_adj_factors(var) # adj_factors contains a B factor and neighboring F factors
     factors = [fac for fac in adj_factors if 'F' in fac.name] # factors contains only F factors
 
-    # print('removing {} and associated neighbors'.format(var))
-
     # update the magnetic field of neighboring variables
     for nbr in nbrs:
         # collect the pair-wise factor containing the neighbor's bucket name
         fac = [f for f in factors if nbr.name.replace('B', '') in f.name].pop()
+        # print(fac.log_values[1])
         # update the neighbor's magentic field
         nbr.log_values -= fac.log_values[1]
         # print("updated neighbor {} log value to {}".format(nbr.name, nbr.log_values))
@@ -216,9 +164,8 @@ def update_MF_of_neighbors_of(model, var):
 def compute_PF_of_modified_GM(model, index, ibound):
     '''
         Each computation done in parallel consists of
-        1) removing the index variable and associated edges
-        2) updating the neighbors' magnetic field
-        3) compute the partition function of the modified GM
+        1) updating the neighbors' magnetic field
+        2) computing the partition function of the modified GM
     '''
     var = model.variables[index] # collect the ith variable name
     copy = model.copy()
@@ -226,18 +173,21 @@ def compute_PF_of_modified_GM(model, index, ibound):
     # this modifies the GM copy by
     # removing var and factors connected to it
     # updating the neighbors' magnetic fields
+
+    # print('removing {} and associated neighbors'.format(var))
     update_MF_of_neighbors_of(copy, var)
+
+
     try:
         # compute partition function of the modified GM
         t1 = time.time()
-        Z_copy = BucketRenormalization(copy, ibound=ibound).run(max_iter=1)
+        Z_copy = BucketRenormalization(copy, ibound=ibound).run()
         t2 = time.time()
-        print('partition function computation {} complete: {} (time taken: {}) - ibound = {}'.format(index, Z_copy, t2 - t1, ibound))
+        print('partition function for {} is complete: {} (time taken: {}) - ibound = {}'.format(var, Z_copy, t2 - t1, ibound))
         return [var, Z_copy, t2 - t1]
     except Exception as e:
         print(e)
         return []
-
 
 def compute_marginals(case, model, params):
     init_inf, H_a, MU, ibound = params
@@ -247,7 +197,7 @@ def compute_marginals(case, model, params):
     # ==========================================
     try:
         t1 = time.time()
-        Z = BucketRenormalization(model, ibound=ibound).run(max_iter=1)
+        Z = BucketRenormalization(model, ibound=ibound).run()
         t2 = time.time()
         print('partition function = {}'.format(Z))
         print('time taken for GBR = {}'.format(t2-t1))
@@ -255,8 +205,10 @@ def compute_marginals(case, model, params):
         raise Exception(e)
     # ==========================================
 
-
     N = len(model.variables)
+
+    # for testing
+    # compute_PF_of_modified_GM(model, 0, ibound)
 
     results=[]
     results.append(
@@ -270,15 +222,89 @@ def compute_marginals(case, model, params):
 
     # compute marginal probabilities formula conditioned on initial seed
     # ==========================================
+    norm = [np.exp(model.get_factor(ith_object_name('B',i)).log_values[1]) for i in range(1,N+1)]
+    print(list(enumerate(zip(norm, Zi))))
+
+    P = lambda i: norm[i]*Zi[i]/Z
+    # ==========================================
+
+    # write data to file
+    filename = "{}_ibound={}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
+
+    utils.append_to_csv(filename, ['Tract', 'Z_i', 'time', 'P_i'])
+    for index in range(N):
+        marg_prob = P(index)
+        utils.append_to_csv(filename, [results[0][index][0],results[0][index][1],results[0][index][2], marg_prob])
+        print('{} complete'.format(index))
+    utils.append_to_csv(filename, ['whole GM',Z,t2-t1, 'N/A'])
+
+def compute_PF_of_modified_GM_BE(model, index):
+    '''
+        Each computation done in parallel consists of
+        1) removing the index variable and associated edges
+        2) updating the neighbors' magnetic field
+        3) compute the partition function of the modified GM
+    '''
+    var = model.variables[index] # collect the ith variable name
+    copy = model.copy()
+
+    # this modifies the GM copy by
+    # removing var and factors connected to it
+    # updating the neighbors' magnetic fields
+
+    update_MF_of_neighbors_of(copy, var)
+
+    try:
+        # compute partition function of the modified GM
+        t1 = time.time()
+        Z_copy = BucketElimination(copy).run()
+        t2 = time.time()
+        print('partition function for {} is complete: {} (time taken: {})'.format(var, Z_copy, t2 - t1))
+        return [var, Z_copy, t2 - t1]
+    except Exception as e:
+        print(e)
+        return []
+
+
+def compute_marginals_BE(case, model, params):
+    init_inf, H_a, MU = params
+
+    # ==========================================
+    # Compute partition function for GM
+    # ==========================================
+    try:
+        t1 = time.time()
+        Z = BucketElimination(model).run()
+        t2 = time.time()
+        print('partition function = {}'.format(Z))
+        print('time taken for GBR = {}'.format(t2-t1))
+    except Exception as e:
+        raise Exception(e)
+    # ==========================================
+
+    N = len(model.variables)
+
+    results=[]
+    results.append(
+        Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_modified_GM_BE)(model, index) for index in range(N))
+    )
+
+    # collect partition functions of sub-GMs
+    Zi = []
+    for index in range(N):
+        Zi.append(results[0][index][1])
+
+    # compute marginal probabilities formula conditioned on initial seed
+    # ==========================================
     P = lambda i: Zi[i]/Z
     # ==========================================
 
     # write data to file
-    filename = "{}_ibound={}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format('GBR',ibound, case, init_inf, H_a, MU)
+    filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format("BE", case, init_inf, H_a, MU)
+
     utils.append_to_csv(filename, ['Tract', 'Z_i', 'time', 'P_i'])
     for index in range(N):
         marg_prob = P(index)
-        # print('P( x_{} = {} ) = {}'.format(index, 1, marg_prob))
         utils.append_to_csv(filename, [results[0][index][0],results[0][index][1],results[0][index][2], marg_prob])
     utils.append_to_csv(filename, ['whole GM',Z,t2-t1, 'N/A'])
 
@@ -299,9 +325,6 @@ def degree_distribution(model, G, params):
     plt.savefig('./results/H_a={}_MU={}_maxJ={}_minJ={}.png'.format(H_a, MU, maxJ, minJ))
     plt.show()
     # quit()
-
-
-
 
 '''def generate_star(N):
     model = GraphicalModel()
@@ -352,3 +375,20 @@ def degree_distribution(model, G, params):
         # store the beta value
         H[a] = fac.log_values[0] # collects positive beta
     return H'''
+
+'''def threshold_GM(model, TAU, in_place = True):
+    '
+        Tau is a percentage of the maximum J value
+        which we use as a minimum threshold to keep an edge or not
+    '
+    copy = model if inplace else model.copy()
+
+    interactions = [fac.log_values[1] for fac in copy.factors if 'F' in fac.name]
+    maxJ = np.max(interactions)
+    for fac in copy.factors:
+        if 'F' in fac.name and fac.log_values[1] <= Tau*maxJ:
+            # get rid of the factor
+            copy.remove_factor(fac)
+
+    if not in_place:
+        return copy'''
