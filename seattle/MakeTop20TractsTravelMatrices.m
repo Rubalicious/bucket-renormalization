@@ -20,6 +20,6 @@ for i=1:size(removeOrder,2)
     output_gisData(removeOrder(1,i),:)=[];
     output_uVData(removeOrder(1,i),:)=[];
 end
-writetable(array2table(output_travelData),strcat('seattle_top',num2str(numRetainedTracts),'_travel_numbers.csv'));
+writetable(array2table(output_travelData),strcat('seattle_top',num2str(numRetainedTracts),'_travel_numbers.csv'),'WriteVariableNames',false);
 writetable(output_gisData,strcat('seattle_top',num2str(numRetainedTracts),'_GIS_data.csv'));
 writetable(array2table(output_uVData),strcat('seattle_top',num2str(numRetainedTracts),'_UV_coordinates.csv'));
