@@ -70,7 +70,7 @@ def testing_partition_function_dependence_on_TAU():
     plt.show()
     quit()
 
-def recreate_pandemy(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.002, ibound=10):
+def recreate_pandemy(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.0005, ibound=10):
     # extract data or a subset of the data
     J = extract_data_top20(case, MU)
 
@@ -91,14 +91,13 @@ def recreate_pandemy(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU
     for var in remaining:
         seeds = copy.copy(init_inf)
         seeds.append(var)
-        print(seeds)
-        conditioned_on_init_and_var = condition_on_seeds_from(model, seeds, in_place=False)
-        conditioned_on_init_then_var = condition_on_seeds_from(conditioned_on_init, [var], in_place=False)
-        logZi = BucketElimination(conditioned_on_init_and_var).run()
-        logZi_t = BucketElimination(conditioned_on_init_then_var).run()
 
-        H_val = conditioned_on_init.get_factor(var.replace('V','B')).log_values[1]
+        conditioned_on_init_and_var = condition_on_seeds_from(model, seeds, in_place=False)
+        logZi = BucketElimination(conditioned_on_init_and_var).run()
+
+        H_val = conditioned_on_init.get_factor(var.replace('V','B')).log_values[0]
         marg_prob = np.exp(H_val)*np.exp(logZi)/np.exp(logZ)
+        print(marg_prob)
         utils.append_to_csv(filename, [var, marg_prob])
 
 
@@ -106,7 +105,8 @@ def plot_PM_vs_ratios():
     pm_data = utils.read_csv('PM.csv')
     PM = [p[1] for p in pm_data][1:]
     ratio_data = utils.read_csv('ratios.csv')
-    ratios = [p[1] for p in ratio_data]
+    ratios = [float(p[1]) for p in ratio_data]
+    print("sum = {}".format(np.sum(ratios)))
     ratio1_data = utils.read_csv('ratios1.csv')
     ratios1 = [p[1] for p in ratio1_data]
     plt.plot(range(len(PM)), PM,'*-', label='logZi/logZ')
@@ -127,77 +127,83 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
     # create a complete graph GM
     model = generate_graphical_model(case, J, init_inf, H_a, condition_on_init_inf=True)
 
-    condition_on_seeds_from(model, init_inf)
+    # condition_on_seeds_from(model, init_inf)
+    init_inf = [ith_object_name('V',var) for var in init_inf]
+    conditioned_on_init = condition_on_seeds_from(model, init_inf, in_place=False)
 
     # choose algorithm
     if alg == 'BP':
-        Z = BeliefPropagation(model).run()
+        Z = BeliefPropagation(conditioned_on_init).run()
     elif alg == 'MF':
-        Z = MeanField(model).run()
+        Z = MeanField(conditioned_on_init).run()
     elif alg == 'GBR':
         # approximate
-        compute_marginals(case, model, (init_inf, H_a, MU, ibound))
+        compute_marginals(case, conditioned_on_init, (init_inf, H_a, MU, ibound))
         return
-    elif alg == 'BE':
-        # exact
-        compute_marginals_BE(case, model, (init_inf, H_a, MU))
-        return
-    elif alg == 'BE_true':
-        Z = BucketElimination(model).run()
-        print(Z)
-        return
+    # elif alg == 'BE':
+    #     # exact
+    #     compute_marginals_BE(case, model, (init_inf, H_a, MU))
+    #     return
+    # elif alg == 'BE_true':
+    #     Z = BucketElimination(model).run()
+    #     print(Z)
+    #     return
     else:
         raise("Algorthim not defined")
 
     N = len(model.variables)
     # write results to file
-    filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format(alg, case, init_inf, H_a, MU)
-    utils.append_to_csv(filename, ['Tract index', 'P'])
-    for index in range(len(J)):
+    filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg, case, init_inf, H_a, MU)
+    utils.append_to_csv(filename, ['Tract index', 'CALI'])
+    for index in range(1,len(J)):
         if index not in init_inf:
             # print('P( x_{} = {} ) = {}'.format(index, 1, ))
-            utils.append_to_csv(filename, [index, Z['marginals']['MARGINAL_V{}'.format(index)]] )
+            CALI = 2*Z['marginals']['MARGINAL_V{}'.format(index)]-1
+            utils.append_to_csv(filename, [index, CALI] )
     utils.append_to_csv(filename, ['whole GM', Z['logZ']])
 
 
-def compare(case = 'seattle', init_inf = [81], H_a = 0.1 , MU = 0.002):
+def compare(case = 'seattle', init_inf = [0], H_a = 0.1 , MU = 0.0005):
     alg1 = 'BP'
     alg2 = 'MF'
     alg3 = 'GBR'
-    alg4 = 'BE'
-    alg5 = 'PM'
+    alg4 = 'GBR'
+    alg5 = 'recreated_misha'
 
-    # filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format(alg1, case, init_inf, H_a, MU)
-    # data1 = utils.read_csv(filename)
-    # filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format(alg2, case, init_inf, H_a, MU)
-    # data2 = utils.read_csv(filename)
-    filename = "{}_ibound={}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format(alg3,10, case, init_inf, H_a, MU)
+    init_inf = [ith_object_name('V', var) for var in init_inf]
+    filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg1, case, init_inf, H_a, MU)
+    data1 = utils.read_csv(filename)
+    filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg2, case, init_inf, H_a, MU)
+    data2 = utils.read_csv(filename)
+    filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg3,5, case, init_inf, H_a, MU)
     data3 = utils.read_csv(filename)
-    filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format(alg4, case, init_inf, H_a, MU)
+    filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg3,10, case, init_inf, H_a, MU)
     data4 = utils.read_csv(filename)
-    filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format(alg5, case, init_inf, H_a, MU)
+    filename = "recreated_misha.csv"
     data5 = utils.read_csv(filename)
 
     N = len(data3)-1
     error = []
     BP_p = []
     MF_p = []
-    GBR_p = []
-    BE_p = []
+    GBR5_p = []
+    GBR10_p = []
     PM_p = []
     for line in range(1,N):
-        # marg1 = [float(val) for val in data1[line][1][1:-1].split(" ")]
+        # print(float(data1[1:-1][line][1].split(" ")[1]))
+        # quit()
+        marg1 = [float(data1[1:-1][line-1][1].split(" ")[1])]
+        marg2 = [float(data2[1:-1][line-1][1].split(" ")[1])]
         # marg2 = [float(val) for val in data2[line][1][1:-1].split(" ")]
         marg3 = [float(data3[line][-1])]
         marg4 = [float(data4[line][-1])]
-        marg5 = [float(data5[line][-1])]
+        marg5 = [float(data5[line-1][-1])]
 
-        # BP_p.append(marg1[0])
-        # MF_p.append(marg2[0])
-        GBR_p.append(marg3[0])
-        BE_p.append(marg4[0])
-        PM_p.append(marg5[0])
-        print(marg5[0])
+        BP_p.append(marg1[0])
+        MF_p.append(marg2[0])
+        GBR5_p.append(marg3[0])
+        GBR10_p.append(marg4[0])
+        PM_p.append(2*marg5[0]-1)
 
 
     truth = {
@@ -223,19 +229,19 @@ def compare(case = 'seattle', init_inf = [81], H_a = 0.1 , MU = 0.002):
                             [0.69913106, 0.30086894]])
 
     }
-    misha = [p[0] for p in truth['marg_prob']]
+    misha = [2*p[0]-1 for p in truth['marg_prob']]
 
     start_node = int(0)
-    # plt.plot(range(len(BP_p)), BP_p, label='BP')
-    # plt.plot(range(len(MF_p)), MF_p, label='MF')
-    plt.plot(range(len(GBR_p)), GBR_p, label='GBR')
-    plt.plot(range(len(BE_p)), BE_p, label='BE')
+    plt.plot(range(len(BP_p)), BP_p, label='BP')
+    plt.plot(range(len(MF_p)), MF_p, label='MF')
+    plt.plot(range(len(GBR5_p)), GBR5_p, label='GBR5')
+    plt.plot(range(len(GBR10_p)), GBR10_p, label='GBR10')
     plt.plot(range(len(PM_p)), PM_p, label='PM')
     plt.plot(range(len(misha)), misha, label='bruteforce')
     plt.xlabel('node number')
     plt.ylabel('probability')
     plt.legend()
-    plt.title('Comparing Marginals of algorithms\n for init_inf = {}, H_a = {}, MU = {}'.format(init_inf, H_a, MU))
+    plt.title('Comparing CALI of algorithms\n for init_inf = {}, H_a = {}, MU = {}'.format(init_inf, H_a, MU))
     plt.savefig('./results/comparison.png')
     plt.show()
 
@@ -346,14 +352,15 @@ def compare_to_misha_results():
 # plot_mu_for_BE()
 # mu_transition_plots()
 mu = 0.0005
-recreate_pandemy(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = 0.1, MU = mu)
-plot_PM_vs_ratios()
+# recreate_pandemy(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = 0.1, MU = mu)
+# plot_PM_vs_ratios()
 # quit()
 
 # implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = mu)
 # implement(case = 'seattle', alg = 'MF', init_inf = [0], H_a = 0.1, MU = mu)
-# implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = 0.1, MU = mu)
-# implement(case = 'seattle', alg = 'BE', init_inf = [0], H_a = 0.1, MU = mu)
+# implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = 0.1, MU = mu, ibound = 5)
+# implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = 0.1, MU = mu, ibound = 10)
+compare()
 # compare(case = 'seattle', init_inf = [0], H_a = 0.1 , MU = mu)
 # compare_to_misha_results()
 

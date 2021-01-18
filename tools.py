@@ -186,13 +186,12 @@ def compute_PF_of_modified_GM(model, index, ibound):
     # updating the neighbors' magnetic fields
 
     # print('removing {} and associated neighbors'.format(var))
-    condition_on_seeds_from(copy, [var])
-
+    conditioned = condition_on_seeds_from(copy, [var], in_place=False)
 
     try:
         # compute partition function of the modified GM
         t1 = time.time()
-        logZ_copy = BucketRenormalization(copy, ibound=ibound).run()
+        logZ_copy = BucketRenormalization(conditioned, ibound=ibound).run()
         t2 = time.time()
         print('partition function for {} is complete: {} (time taken: {}) - ibound = {}'.format(var, logZ_copy, t2 - t1, ibound))
         return [var, logZ_copy, t2 - t1]
@@ -202,6 +201,13 @@ def compute_PF_of_modified_GM(model, index, ibound):
 
 def compute_marginals(case, model, params):
     init_inf, H_a, MU, ibound = params
+
+
+    N = len(model.variables)
+    # factors = model.get_factors_from([ith_object_name('B',i) for i in range(1,N+1)])
+    # magnetizations = [fac.log_values[0] for fac in factors]
+    # norm = np.exp(magnetizations)
+    # print(len(norm))
 
     # ==========================================
     # Compute partition function for GM
@@ -216,11 +222,6 @@ def compute_marginals(case, model, params):
         raise Exception(e)
     # ==========================================
 
-    N = len(model.variables)
-
-    # for testing
-    # compute_PF_of_modified_GM(model, 0, ibound)
-
     results=Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_modified_GM)(model, index, ibound) for index in range(N))
 
     # collect partition functions of sub-GMs
@@ -230,19 +231,21 @@ def compute_marginals(case, model, params):
 
     # compute marginal probabilities formula conditioned on initial seed
     # ==========================================
-    norm = np.exp([model.get_factor(ith_object_name('B',i)).log_values[1] for i in range(1,N+1)])
-    # print(list(enumerate(zip(norm, Zi))))
+    factors = model.get_factors_from([ith_object_name('B',i) for i in range(1,N+1)])
+    magnetizations = [fac.log_values[0] for fac in factors]
+    norm = np.exp(magnetizations)
 
-    P = lambda i: np.exp(logZi[i])/np.exp(logZ)
+    P = lambda i: norm[i]*np.exp(logZi[i])/np.exp(logZ)
     # ==========================================
 
     # write data to file
-    filename = "{}_ibound={}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
+    filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
 
-    utils.append_to_csv(filename, ['Tract', 'logZi', 'time', 'logZi/logZ'])
+    utils.append_to_csv(filename, ['Tract', 'logZi', 'time', 'CALI'])
     for index in range(N):
         marg_prob = P(index)
-        utils.append_to_csv(filename, [results[index][0],results[index][1],results[index][2], marg_prob])
+        CALI = 2*P(index)-1
+        utils.append_to_csv(filename, [results[index][0],results[index][1],results[index][2], CALI])
     utils.append_to_csv(filename, ['whole GM',logZ,t2-t1, 'N/A'])
 
 def compute_PF_of_modified_GM_BE(model, index):
