@@ -204,10 +204,6 @@ def compute_marginals(case, model, params):
 
 
     N = len(model.variables)
-    # factors = model.get_factors_from([ith_object_name('B',i) for i in range(1,N+1)])
-    # magnetizations = [fac.log_values[0] for fac in factors]
-    # norm = np.exp(magnetizations)
-    # print(len(norm))
 
     # ==========================================
     # Compute partition function for GM
@@ -248,26 +244,30 @@ def compute_marginals(case, model, params):
         utils.append_to_csv(filename, [results[index][0],results[index][1],results[index][2], CALI])
     utils.append_to_csv(filename, ['whole GM',logZ,t2-t1, 'N/A'])
 
+
+
 def compute_PF_of_modified_GM_BE(model, index):
     '''
         Each computation done in parallel consists of
-        1) removing the index variable and associated edges
-        2) updating the neighbors' magnetic field
-        3) compute the partition function of the modified GM
+        1) updating the neighbors' magnetic field
+        2) computing the partition function of the modified GM
     '''
     var = model.variables[index] # collect the ith variable name
     copy = model.copy()
+
 
     # this modifies the GM copy by
     # removing var and factors connected to it
     # updating the neighbors' magnetic fields
 
-    update_MF_of_neighbors(copy, var)
+    # print('removing {} and associated neighbors'.format(var))
+    conditioned = condition_on_seeds_from(copy, [var], in_place=False)
+
 
     try:
         # compute partition function of the modified GM
         t1 = time.time()
-        logZ_copy = BucketElimination(copy).run()
+        logZ_copy = BucketElimination(conditioned).run()
         t2 = time.time()
         print('partition function for {} is complete: {} (time taken: {})'.format(var, logZ_copy, t2 - t1))
         return [var, logZ_copy, t2 - t1]
@@ -275,9 +275,11 @@ def compute_PF_of_modified_GM_BE(model, index):
         print(e)
         return []
 
-
 def compute_marginals_BE(case, model, params):
     init_inf, H_a, MU = params
+
+    N = len(model.variables)
+
 
     # ==========================================
     # Compute partition function for GM
@@ -292,32 +294,108 @@ def compute_marginals_BE(case, model, params):
         raise Exception(e)
     # ==========================================
 
-    N = len(model.variables)
-
-    results=[]
-    results.append(
-        Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_modified_GM_BE)(model, index) for index in range(N))
-    )
+    results=Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_modified_GM_BE)(model, index) for index in range(N))
 
     # collect partition functions of sub-GMs
     logZi = []
     for index in range(N):
-        logZi.append(results[0][index][1])
+        logZi.append(results[index][1])
 
     # compute marginal probabilities formula conditioned on initial seed
     # ==========================================
-    norm = np.exp([model.get_factor(ith_object_name('B',i)).log_values[1] for i in range(1,N+1)])
-    P = lambda i: logZi[i]/logZ
+
+    factors = model.get_factors_from([ith_object_name('B',i) for i in range(1,N+1)])
+    magnetizations = [fac.log_values[0] for fac in factors]
+    norm = np.exp(magnetizations)
+    print(N)
+    print(factors)
+    print(norm[19])
+    print(len(logZi))
+
+    P = lambda i: norm[i]*np.exp(logZi[i])/np.exp(logZ)
     # ==========================================
 
     # write data to file
-    filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format("BE", case, init_inf, H_a, MU)
+    filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("BE", case, init_inf, H_a, MU)
 
-    utils.append_to_csv(filename, ['Tract', 'logZi', 'time', 'logZi/logZ'])
+    utils.append_to_csv(filename, ['Tract', 'logZi', 'time', 'CALI'])
     for index in range(N):
+        print(index)
         marg_prob = P(index)
-        utils.append_to_csv(filename, [results[0][index][0],results[0][index][1],results[0][index][2], marg_prob])
+        CALI = 2*P(index)-1
+        utils.append_to_csv(filename, [results[index][0],results[index][1],results[index][2], CALI])
     utils.append_to_csv(filename, ['whole GM',logZ,t2-t1, 'N/A'])
+
+# def compute_PF_of_modified_GM_BE(model, index):
+#     '''
+#         Each computation done in parallel consists of
+#         1) removing the index variable and associated edges
+#         2) updating the neighbors' magnetic field
+#         3) compute the partition function of the modified GM
+#     '''
+#     var = model.variables[index] # collect the ith variable name
+#     copy = model.copy()
+#
+#     # this modifies the GM copy by
+#     # removing var and factors connected to it
+#     # updating the neighbors' magnetic fields
+#
+#     update_MF_of_neighbors(copy, var)
+#
+#     try:
+#         # compute partition function of the modified GM
+#         t1 = time.time()
+#         logZ_copy = BucketElimination(copy).run()
+#         t2 = time.time()
+#         print('partition function for {} is complete: {} (time taken: {})'.format(var, logZ_copy, t2 - t1))
+#         return [var, logZ_copy, t2 - t1]
+#     except Exception as e:
+#         print(e)
+#         return []
+#
+#
+# def compute_marginals_BE(case, model, params):
+#     init_inf, H_a, MU = params
+#
+#     # ==========================================
+#     # Compute partition function for GM
+#     # ==========================================
+#     try:
+#         t1 = time.time()
+#         logZ = BucketElimination(model).run()
+#         t2 = time.time()
+#         print('partition function = {}'.format(logZ))
+#         print('time taken for GBR = {}'.format(t2-t1))
+#     except Exception as e:
+#         raise Exception(e)
+#     # ==========================================
+#
+#     N = len(model.variables)
+#
+#     results=[]
+#     results.append(
+#         Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_modified_GM_BE)(model, index) for index in range(N))
+#     )
+#
+#     # collect partition functions of sub-GMs
+#     logZi = []
+#     for index in range(N):
+#         logZi.append(results[0][index][1])
+#
+#     # compute marginal probabilities formula conditioned on initial seed
+#     # ==========================================
+#     norm = np.exp([model.get_factor(ith_object_name('B',i)).log_values[1] for i in range(1,N+1)])
+#     P = lambda i: logZi[i]/logZ
+#     # ==========================================
+#
+#     # write data to file
+#     filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format("BE", case, init_inf, H_a, MU)
+#
+#     utils.append_to_csv(filename, ['Tract', 'logZi', 'time', 'logZi/logZ'])
+#     for index in range(N):
+#         marg_prob = P(index)
+#         utils.append_to_csv(filename, [results[0][index][0],results[0][index][1],results[0][index][2], marg_prob])
+#     utils.append_to_csv(filename, ['whole GM',logZ,t2-t1, 'N/A'])
 
 
 def degree_distribution(model, G, params):
