@@ -125,29 +125,30 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
     J = extract_data_top20(case, MU)
 
     # create a complete graph GM
-    model = generate_graphical_model(case, J, init_inf, H_a, condition_on_init_inf=True)
-
-    # condition_on_seeds_from(model, init_inf)
-    init_inf = [ith_object_name('V',var) for var in init_inf]
-    conditioned_on_init = condition_on_seeds_from(model, init_inf, in_place=False)
+    model = generate_graphical_model(case, J, H_a)
 
     # choose algorithm
     if alg == 'BP':
-        Z = BeliefPropagation(conditioned_on_init).run()
+        # condition_on_seeds_from(model, init_inf)
+        init_inf = [ith_object_name('V',var) for var in init_inf]
+        conditioned_on_init = condition_on_seeds_from(model, init_inf)
+        logZ = BeliefPropagation(conditioned_on_init).run()
     elif alg == 'MF':
-        Z = MeanField(conditioned_on_init).run()
+        # condition_on_seeds_from(model, init_inf)
+        init_inf = [ith_object_name('V',var) for var in init_inf]
+        conditioned_on_init = condition_on_seeds_from(model, init_inf)
+        logZ = MeanField(conditioned_on_init).run()
     elif alg == 'GBR':
         # approximate
-        compute_marginals(case, conditioned_on_init, (init_inf, H_a, MU, ibound))
+        compute_marginals(case, model, (init_inf, H_a, MU, ibound))
         return
     elif alg == 'BE':
         # exact
-        compute_marginals_BE(case, model, (init_inf, H_a, MU))
+        compute_marginals_BE(case, conditioned_on_init, (init_inf, H_a, MU))
         return
-    # elif alg == 'BE_true':
-    #     Z = BucketElimination(model).run()
-    #     print(Z)
-    #     return
+    elif alg == 'BE_true':
+        logZ = BucketElimination(model).run()
+        return
     else:
         raise("Algorthim not defined")
 
@@ -155,14 +156,112 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
     # write results to file
     filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg, case, init_inf, H_a, MU)
     utils.append_to_csv(filename, ['Tract index', 'CALI'])
-    for index in range(1,len(J)):
-        if index not in init_inf:
-            # print('P( x_{} = {} ) = {}'.format(index, 1, ))
-            CALI = 2*Z['marginals']['MARGINAL_V{}'.format(index)]-1
-            utils.append_to_csv(filename, [index, CALI[0]] )
-    utils.append_to_csv(filename, ['whole GM', Z['logZ']])
+    for index in range(len(J)):
+        if ith_object_name('V',index) not in init_inf:
+            CALI = 2*logZ['marginals']['MARGINAL_V{}'.format(index)]-1
+            utils.append_to_csv(filename, [index, CALI[1]] )
+    utils.append_to_csv(filename, ['whole GM', logZ['logZ']])
 
 
+# plot_mu_for_BE()
+# mu_transition_plots()
+mu = 0.0005
+MUS = [1e-4,2e-4,4e-4,6e-4]
+HS = [1e-2,5e-2,10e-2]
+
+# recreate_pandemy(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = 0.1, MU = mu)
+# plot_PM_vs_ratios()
+# quit()
+
+def plot_result(H_a, MU):
+    for alg in ['GBR_ibound=10','GBR_ibound=20', 'MF', 'BP']:
+        data = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format(alg, H_a, MU))[1:-1]
+        CALI = [float(row[-1]) for row in data]
+        plt.plot(range(len(CALI)), CALI, label=alg.replace('_ibound=',''))
+    plt.title(r"$\mu$={}, $H_a$={}".format(MU, H_a), fontsize=12)
+    plt.xlabel('node number')
+    plt.ylabel('CALI')
+    plt.legend()
+    plt.show()
+
+def compare_subplots():
+    HS = [1e-2,5e-2,1e-1]
+    MUS = [1e-4,2e-4,4e-4,6e-4]
+
+    fig, axes = plt.subplots(4, 3, sharex=True, sharey=True)
+    # files = os.listdir('./results')
+    for alg in ['GBR_ibound=10','GBR_ibound=20', 'MF', 'BP']:
+        for i in range(len(HS)):
+            for j in range(len(MUS)):
+                data = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format(alg, HS[i], MUS[j]))[1:-1]
+                CALI = [float(row[-1]) for row in data]
+                # print(CALI)
+                plt.subplot(4,3,i+j*len(HS)+1)
+                # if alg == 'GBR_ibound=20': alg = 'Exact'
+                plt.plot(range(len(CALI)), CALI, label=alg.replace('_ibound=',''))
+                plt.title(r"$\mu$={}, $H_a$={}".format(MUS[j], HS[i]), fontsize=8)
+
+                # quit()
+    plt.legend(loc='upper right')
+    fig.text(0.5, 0.04, r"$H_a$", ha='center')
+    fig.text(0.04, 0.5, r"$\mu$", va='center', rotation='vertical')
+    plt.show()
+
+
+def generate_data_for(H_a, MU):
+    implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = H_a, MU = MU)
+    implement(case = 'seattle', alg = 'MF', init_inf = [0], H_a = H_a, MU = MU)
+    # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 5)
+    implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 10)
+    implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
+
+
+# H_a = 0.01
+# MU = 4e-4
+# generate_data_for(H_a, MU)
+# # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
+# plot_result(H_a, MU)
+
+# basic checks
+# fix mu = 0, vary H_a
+# fix H, increase MU, ==> CALI --> +1
+#
+HS = [1e-2,5e-2,1e-1]
+MUS = [1e-4,2e-4,4e-4,6e-4]
+for mu in MUS:
+    for H_a in HS:
+        print("running experiments for mu={}, H_a = {}".format(mu, H_a))
+        generate_data_for(H_a, mu)
+
+compare_subplots()
+
+# plot_result(H_a = 5e-2, MU = 6e-4)
+# plot_result(H_a = 1e-1, MU = 6e-4)
+
+# compare(case = 'seattle', init_inf = [0], H_a = H_a , MU = mu)
+# compare(case = 'seattle', init_inf = [0], H_a = 0.1 , MU = mu)
+# compare_to_misha_results()
+
+# for mu in np.linspace(0.0001, 0.001, 20):
+#     print("mu={}".format(mu))
+# for mu in [0.0001, 0.0002, 0.0003, 0.0004, 0.0006]:
+#     implement(case = 'seattle', alg = 'BE', init_inf = [0], H_a = 0.1, MU = mu)
+
+
+# implement(case = 'seattle', alg = 'MF', init_inf = [81], H_a = 0.1, MU = mu)
+# implement(case = 'seattle', alg = 'GBR', init_inf = [81], H_a = 0.1, MU = mu, ibound = 10)
+# compare(case = 'seattle', init_inf = [81], H_a = 0.1 , MU = mu)
+# compare(alg1='BP', alg2='MF', case = 'seattle', init_inf = [81], H_a = 0.1 , MU = mu)
+# quit()
+# implement(case = 'seattle', alg = 'BP', init_inf = [81], H_a = 0.1, MU = mu)
+# implement(case = 'seattle', alg = 'MF', init_inf = [81], H_a = 0.1, MU = mu)
+# implement(case = 'seattle', alg = 'GBR', init_inf = [81], H_a = 0.1, MU = mu)
+# implement(case = 'seattle', alg = 'BE', init_inf = [81], H_a = 0.1, MU = mu)
+# compare(case = 'seattle', init_inf = [81], H_a = 0.1 , MU = mu)
+
+
+
+'''
 def compare(case = 'seattle', init_inf = [0], H_a = 0.1 , MU = 0.0005):
     alg1 = 'BP'
     alg2 = 'MF'
@@ -347,71 +446,4 @@ def compare_to_misha_results():
     plt.legend()
     plt.show()
 
-
-
-# plot_mu_for_BE()
-# mu_transition_plots()
-mu = 0.0005
-MUS = [1e-4,2e-4,4e-4,6e-4]
-HS = [1e-2,5e-2,10e-2]
-
-# recreate_pandemy(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = 0.1, MU = mu)
-# plot_PM_vs_ratios()
-# quit()
-def compare_subplots():
-    HS = [1e-2,5e-2,1e-1]
-    MUS = [1e-4,2e-4,4e-4,6e-4]
-
-    fig, axes = plt.subplots(4, 3, sharex=True, sharey=True)
-    # files = os.listdir('./results')
-    for alg in ['GBR_ibound=10','GBR_ibound=20', 'MF', 'BP']:
-        for i in range(len(HS)):
-            for j in range(len(MUS)):
-                data = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format(alg, HS[i], MUS[j]))[1:-1]
-                CALI = [float(row[-1]) for row in data]
-                # print(CALI)
-                plt.subplot(4,3,i+j*len(HS)+1)
-                # if alg == 'GBR_ibound=20': alg = 'Exact'
-                plt.plot(range(len(CALI)), CALI, label=alg.replace('_ibound=',''))
-                plt.title(r"$\mu$={}, $H_a$={}".format(MUS[j], HS[i]), fontsize=8)
-
-                # quit()
-    plt.legend(loc='upper right')
-    fig.text(0.5, 0.04, r"$H_a$", ha='center')
-    fig.text(0.04, 0.5, r"$\mu$", va='center', rotation='vertical')
-    plt.show()
-# H_a = 0.1
-# mu = 0.0001
-
-
-# HS = [1e-2,5e-2,1e-1]
-# MUS = [1e-4,2e-4,4e-4,6e-4]
-# for mu in MUS:
-#     for H_a in HS:
-#         print("running experiments for mu={}, H_a = {}".format(mu, H_a))
-#         implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = H_a, MU = mu)
-#         implement(case = 'seattle', alg = 'MF', init_inf = [0], H_a = H_a, MU = mu)
-#         implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = mu, ibound = 5)
-#         implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = mu, ibound = 10)
-#         implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = mu, ibound = 20)
-compare_subplots()
-# compare(case = 'seattle', init_inf = [0], H_a = H_a , MU = mu)
-# compare(case = 'seattle', init_inf = [0], H_a = 0.1 , MU = mu)
-# compare_to_misha_results()
-
-# for mu in np.linspace(0.0001, 0.001, 20):
-#     print("mu={}".format(mu))
-# for mu in [0.0001, 0.0002, 0.0003, 0.0004, 0.0006]:
-#     implement(case = 'seattle', alg = 'BE', init_inf = [0], H_a = 0.1, MU = mu)
-
-
-# implement(case = 'seattle', alg = 'MF', init_inf = [81], H_a = 0.1, MU = mu)
-# implement(case = 'seattle', alg = 'GBR', init_inf = [81], H_a = 0.1, MU = mu, ibound = 10)
-# compare(case = 'seattle', init_inf = [81], H_a = 0.1 , MU = mu)
-# compare(alg1='BP', alg2='MF', case = 'seattle', init_inf = [81], H_a = 0.1 , MU = mu)
-# quit()
-# implement(case = 'seattle', alg = 'BP', init_inf = [81], H_a = 0.1, MU = mu)
-# implement(case = 'seattle', alg = 'MF', init_inf = [81], H_a = 0.1, MU = mu)
-# implement(case = 'seattle', alg = 'GBR', init_inf = [81], H_a = 0.1, MU = mu)
-# implement(case = 'seattle', alg = 'BE', init_inf = [81], H_a = 0.1, MU = mu)
-# compare(case = 'seattle', init_inf = [81], H_a = 0.1 , MU = mu)
+'''
