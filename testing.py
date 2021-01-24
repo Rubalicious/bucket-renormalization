@@ -115,7 +115,12 @@ def plot_PM_vs_ratios():
     plt.legend()
     plt.show()
 
+def marg_prob_formula(H_a, MU):
+    # extract data or a subset of the data
+    J = extract_data_top20(case, MU)
 
+    # create a complete graph GM
+    model = generate_graphical_model(case, J, H_a)
 
 def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.002, ibound=10):
     '''
@@ -144,7 +149,7 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
         return
     elif alg == 'BE':
         # exact
-        compute_marginals_BE(case, conditioned_on_init, (init_inf, H_a, MU))
+        compute_marginals_BE(case, model, (init_inf, H_a, MU))
         return
     elif alg == 'BE_true':
         logZ = BucketElimination(model).run()
@@ -182,6 +187,7 @@ def plot_result(H_a, MU):
     plt.xlabel('node number')
     plt.ylabel('CALI')
     plt.legend()
+    plt.savefig("./results/MU={}_H_a={}.png".format(MU, H_a))
     plt.show()
 
 def compare_subplots():
@@ -190,7 +196,7 @@ def compare_subplots():
 
     fig, axes = plt.subplots(4, 3, sharex=True, sharey=True)
     # files = os.listdir('./results')
-    for alg in ['GBR_ibound=10','GBR_ibound=20', 'MF', 'BP']:
+    for alg in ['GBR_ibound=20','GBR_ibound=5','GBR_ibound=10', 'MF', 'BP']:
         for i in range(len(HS)):
             for j in range(len(MUS)):
                 data = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format(alg, HS[i], MUS[j]))[1:-1]
@@ -209,31 +215,67 @@ def compare_subplots():
 
 
 def generate_data_for(H_a, MU):
-    implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = H_a, MU = MU)
-    implement(case = 'seattle', alg = 'MF', init_inf = [0], H_a = H_a, MU = MU)
-    # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 5)
-    implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 10)
-    implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
+    # implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = H_a, MU = MU)
+    # implement(case = 'seattle', alg = 'MF', init_inf = [0], H_a = H_a, MU = MU)
+    implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 5)
+    # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 10)
+    # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
 
 
 # H_a = 0.01
-# MU = 4e-4
+# MU = 3e-4
 # generate_data_for(H_a, MU)
-# # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
 # plot_result(H_a, MU)
+# implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
+
 
 # basic checks
 # fix mu = 0, vary H_a
 # fix H, increase MU, ==> CALI --> +1
 #
-HS = [1e-2,5e-2,1e-1]
-MUS = [1e-4,2e-4,4e-4,6e-4]
-for mu in MUS:
-    for H_a in HS:
-        print("running experiments for mu={}, H_a = {}".format(mu, H_a))
-        generate_data_for(H_a, mu)
+# HS = [1e-2,5e-2,1e-1]
+# MUS = [1e-4,2e-4,4e-4,6e-4]
+# for mu in MUS:
+#     for H_a in HS:
+#         print("running experiments for mu={}, H_a = {}".format(mu, H_a))
+#         generate_data_for(H_a, mu)
+        # plot_result(H_a, mu)
 
-compare_subplots()
+# compare_subplots()
+
+
+# mu=0.0001, h=0.01
+# 4
+# p_exact = [0.4971938023030517, 0.5025450897547602, 0.4993989150688658, 0.
+# ,!4984037249367082, 0.5030564925069722, 0.5012683029976511, 0.4993210184738254,
+# ,!0.4969575916085563, 0.5027389915401242, 0.4972146734362853, 0.
+# ,!4969562949348514, 0.49730486459999046, 0.507188944634411, 0.5021764934977803,
+# ,!0.49507478575480096, 0.4980818731509484, 0.5035539920237058, 0.
+# ,!496722135573331, 0.49830680651655873]
+# p_mf_inferlo = [0.4971848843668987, 0.5025803985517158, 0.49940475901768644, 0.
+# ,!49840566441649214, 0.5030993262848655, 0.5012860090782918, 0.
+# ,!49932613469979853, 0.4969567074385086, 0.5027569246927565, 0.4972113748617529,
+# ,!0.49693348742738597, 0.4973025127037605, 0.5073701759049752, 0.
+# ,!5022011570559047, 0.4950653708570877, 0.4980810355525359, 0.5035730293031024,
+# ,!0.4967137769593073, 0.4983062866307225]
+# p_gbr5 = [0.49755670395797413, 0.5033820572532484, 0.4996607251356631, 0.
+# ,!4985286775090472, 0.5032581003876697, 0.5015222618518154, 0.49952388794138497,
+# ,!0.4970018475808352, 0.5031981643526047, 0.4972167403656993, 0.
+# ,!4976062334867557, 0.4976388327942517, 0.5085828828876346, 0.5026645364820154,
+# ,!0.4953179537162413, 0.4980934259135538, 0.5037475029877392, 0.
+# ,!4969942353867113, 0.4983691695947848]
+# p_gbr10 = [0.49754123620949964, 0.5027672605119998, 0.499595373913597, 0.
+# ,!49859796694371183, 0.5031447577525384, 0.5013972128111671, 0.
+# ,!49973979047790124, 0.49708242023006094, 0.5030035075410692, 0.
+# ,!49741105068906655, 0.49726375209177587, 0.4974573163070583, 0.
+# ,!5077479061306042, 0.5024778346742739, 0.4954065221213778, 0.4983903351980553,
+# ,!0.5038460865298673, 0.49680115758006815, 0.49832495336210963]
+# p_bp_sungsoo = [0.4974514151110049, 0.5028982537937949, 0.499531288950727, 0.
+# ,!498553455122775, 0.5033903336490293, 0.5015309527006923, 0.49956817937121345,
+# ,!0.4970465647909179, 0.5029733808749947, 0.49734949866652, 0.4973633789590499,
+# ,!0.4974817324055931, 0.5080633133243598, 0.5025822906243342, 0.
+# ,!49521616588968703, 0.49817964599862236, 0.5037595017283863, 0.
+# ,!49689979826740416, 0.498338953525337]
 
 # plot_result(H_a = 5e-2, MU = 6e-4)
 # plot_result(H_a = 1e-1, MU = 6e-4)

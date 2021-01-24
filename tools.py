@@ -57,9 +57,6 @@ def extract_data(case, MU=0.002):
     J = data*np.log(1/(1-MU))
     print(J)
     # MU = 1-np.exp(-J/np.max(data))
-
-    minJ = np.round(np.min(J), 5)
-    maxJ = np.round(np.max(J), 5)
     return J
 
 def ith_object_name(prefix, i):
@@ -110,7 +107,8 @@ def condition_on_seeds_from(model, seed):
     # modify magentic fields of neighbors of each seed
     for inf in seed:
         for sus in healthy:
-            fac = [fac for fac in copy.factors if inf in fac.variables and sus in fac.variables and 'F' in fac.name].pop()
+            t = np.sort([int(inf[1:]), int(sus[1:])])
+            fac = model.get_factor('F({},{})'.format(t[0], t[1]))
             copy.get_factor(sus.replace('V','B')).log_values -= fac.log_values[0]
 
     # remove all appropriate variables and edges
@@ -121,35 +119,35 @@ def condition_on_seeds_from(model, seed):
 
     return copy
 
-def compute_PF_of_sub_GM(model, index, init_inf, ibound):
-    '''
-        Each computation done in parallel consists of
-        1) updating the neighbors' magnetic field
-        2) computing the partition function of the modified GM
-    '''
-    var = model.variables[index] # collect the ith variable name
-
-    # this modifies the GM copy by
-    # removing var and factors connected to it
-    # updating the neighbors' magnetic fields
-    N = len(model.variables)
-
-    conditioned = condition_on_seeds_from(model, [var], in_place=False)
-    factors = conditioned.get_factors_from([ith_object_name('B',i) for i in range(N) if i not in init_inf+[var]])
-    magnetizations = [fac.log_values[0] for fac in factors]
-    print(list(zip(factors, magnetizations)))
-    quit()
-
-    try:
-        # compute partition function of the modified GM
-        t1 = time.time()
-        logZ_copy = BucketRenormalization(conditioned, ibound=ibound).run()
-        t2 = time.time()
-        print('partition function for {} is complete: {} (time taken: {}) - ibound = {}'.format(var, logZ_copy, t2 - t1, ibound))
-        return [var, logZ_copy, t2 - t1]
-    except Exception as e:
-        print(e)
-        return []
+# def compute_PF_of_sub_GM(model, index, init_inf, ibound):
+#     '''
+#         Each computation done in parallel consists of
+#         1) updating the neighbors' magnetic field
+#         2) computing the partition function of the modified GM
+#     '''
+#     var = model.variables[index] # collect the ith variable name
+#
+#     # this modifies the GM copy by
+#     # removing var and factors connected to it
+#     # updating the neighbors' magnetic fields
+#     N = len(model.variables)
+#
+#     conditioned = condition_on_seeds_from(model, [var], in_place=False)
+#     factors = conditioned.get_factors_from([ith_object_name('B',i) for i in range(N) if i not in init_inf+[var]])
+#     magnetizations = [fac.log_values[0] for fac in factors]
+#     print(list(zip(factors, magnetizations)))
+#     quit()
+#
+#     try:
+#         # compute partition function of the modified GM
+#         t1 = time.time()
+#         logZ_copy = BucketRenormalization(conditioned, ibound=ibound).run()
+#         t2 = time.time()
+#         print('partition function for {} is complete: {} (time taken: {}) - ibound = {}'.format(var, logZ_copy, t2 - t1, ibound))
+#         return [var, logZ_copy, t2 - t1]
+#     except Exception as e:
+#         print(e)
+#         return []
 
 def compute_marginals(case, model, params):
     init_inf, H_a, MU, ibound = params
@@ -161,31 +159,33 @@ def compute_marginals(case, model, params):
     init_inf = [ith_object_name('V',var) for var in init_inf]
     conditioned_on_init = condition_on_seeds_from(model, init_inf)
     logZ = BucketRenormalization(conditioned_on_init, ibound=ibound).run()
-    # ==========================================
-    # Compute partition function for GM
-    # ==========================================
-    # try:
-        # t1 = time.time()
+    # logZ = BucketElimination(conditioned_on_init).run()
 
-    #     t2 = time.time()
-    #     print('partition function = {}'.format(logZ))
-    #     print('time taken for GBR = {}'.format(t2-t1))
-    # except Exception as e:
-    #     raise Exception(e)
-    # ==========================================
-    # write data to file
     filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
     utils.append_to_csv(filename, ['Tract', 'CALI'])
 
     # P = lambda i: np.exp(-H_a)*np.exp(logZi[i])/np.exp(logZ)
     # healthy = list(set(model.variables).difference(set(init_inf)))
+
+
+
     for index in range(N):
         var = model.variables[index]
-        if var in init_inf: continue
-        print(init_inf+[var])
+        if var in init_inf: continue # skip
+
         conditioned_on_init_and_var = condition_on_seeds_from(model, init_inf+[var])
         logZi = BucketRenormalization(conditioned_on_init_and_var, ibound=ibound).run()
-        marg_prob = np.exp(-H_a)*np.exp(logZi)/np.exp(logZ)
+        # logZi = BucketElimination(conditioned_on_init_and_var).run()
+
+        # need the edge factors connected to infected nodes
+        # J_vals = sum([fac.log_values[0][0] for fac in model.factors if 'F' in fac.name and set(init_inf).intersection(set(fac.variables))])
+        
+        J_val = model.get_factor('F({},{})'.format(init_inf[0][1:],var[1:])).log_values[0][0]
+        # the update rule
+        # norm = np.exp(-H_a)
+        # norm = 1
+
+        marg_prob = np.exp( logZi - logZ - H_a + J_val)
         CALI = 2*marg_prob-1
         utils.append_to_csv(filename, [model.variables[index], CALI])
 
