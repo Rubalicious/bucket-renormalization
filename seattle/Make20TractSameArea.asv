@@ -1,0 +1,56 @@
+clc
+clear
+numRetainedTracts=20;
+travelData=table2array(readtable("seattle_travel_numbers.csv"));
+gisData=readtable("seattle_GIS_data.csv");
+tenTractIndices=table2array(readtable("seattle_10_sameArea_indices.csv"));
+twentyTractIndices=table2array(readtable("seattle_20_sameArea_indices.csv"));
+travelData10(10,10)=0;
+travelData20(20,20)=0;
+groupIndices10=cell(10,1);
+for i=1:size(travelData,1)
+    newIndex=tenTractIndices(i,1);
+    groupIndices10{newIndex,1}(size(groupIndices10{newIndex,1},2)+1)=tenTractIndices(i,2);
+end
+for i=1:size(groupIndices10,1)
+    for j=1:size(groupIndices10{i,1},2)
+        for k=1:size(groupIndices10,1)
+            if i~=k
+                for m=1:size(groupIndices10{k,1},2)
+                    travelData10(i,k)=travelData10(i,k)+travelData(j,m);
+                end
+            end
+        end
+    end
+end
+output_gisData=gisData;
+output_gisData(11:size(gisData,1),:)=[];
+for i=1:10
+    avgLat=0;
+    avgLon=0;
+    for j=1:size(groupIndices20{i,1},2)
+        avgLat=
+    end
+    output_gisData(i,2)=
+end
+writetable(output_gisData,strcat('seattle_10sameArea_GIS_data.csv'));
+writetable(array2table(travelData10),strcat('seattle_10sameArea_travel_numbers.csv'),'WriteVariableNames',false);
+
+groupIndices20=cell(20,1);
+for i=1:size(travelData,1)
+    newIndex=twentyTractIndices(i,1);
+    groupIndices20{newIndex,1}(size(groupIndices20{newIndex,1},2)+1)=twentyTractIndices(i,2);
+end
+for i=1:size(groupIndices20,1)
+    for j=1:size(groupIndices20{i,1},2)
+        for k=1:size(groupIndices20,1)
+            if i~=k
+                for m=1:size(groupIndices20{k,1},2)
+                    travelData20(i,k)=travelData20(i,k)+travelData(j,m);
+                end
+            end
+        end
+    end
+end
+writetable(output_gisData,strcat('seattle_20sameArea_GIS_data.csv'));
+writetable(array2table(travelData20),strcat('seattle_20sameArea_travel_numbers.csv'),'WriteVariableNames',false);
