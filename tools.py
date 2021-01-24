@@ -67,7 +67,7 @@ def ith_object_name(prefix, i):
 def ijth_object_name(prefix, i,j):
     return prefix + '(' + str(int(i)) + ',' + str(int(j)) + ')'
 
-def generate_graphical_model(case, J, init_inf, H_a, condition_on_init_inf=True):
+def generate_graphical_model(case, J, H_a):
     '''
     This is done in 3 steps:
         1) add all variable names to the GM
@@ -101,92 +101,44 @@ def generate_graphical_model(case, J, init_inf, H_a, condition_on_init_inf=True)
             log_values = log_values)
         model.add_factor(factor)
 
-    # Modify the graph by conditioning it on the initially infected nodes
-    # removes the initially infected nodes too.
-    if condition_on_init_inf:
-        for var in init_inf:
-            update_MF_of_neighbors(model, ith_object_name('V', var))
-
     return model
 
-def get_neighbor_factors_of(model, var):
-    '''
-        Returns a list of 1-factors of a given variable var in the GM model
-    '''
-    adj_factors = model.get_adj_factors(var) # adj_factors contains a B factor and neighboring F factors
-    factors = [fac for fac in adj_factors if 'F' in fac.name] # factors contains only F factors
+def condition_on_seeds_from(model, seed):
+    copy = model.copy()
 
-    # collect variable names of neighbors
-    var_names = []
-    for fac in factors:
-        for entry in fac.variables:
-            var_names.append(entry.replace('V', 'B'))
-    # this is a set e.g. ['B52', 'B81', 'B0']
-    var_names = list(set(var_names))
-
-    # remove the factor associated to var
-    var_names.remove(var.replace('V', 'B'))
-
-    # collection of B factors
-    nbrs = model.get_factors_from(var_names)
-
-    return nbrs
-
-def condition_on_seeds_from(model, seed, in_place=True):
-    model = model if in_place else model.copy()
-
-    healthy = [var for var in model.variables if var not in seed]
+    healthy = [var for var in copy.variables if var not in seed]
     # modify magentic fields of neighbors of each seed
     for inf in seed:
         for sus in healthy:
-            fac = [fac for fac in model.factors if inf in fac.variables and sus in fac.variables and 'F' in fac.name].pop()
-            model.get_factor(sus.replace('V','B')).log_values -= fac.log_values[1]
+            fac = [fac for fac in copy.factors if inf in fac.variables and sus in fac.variables and 'F' in fac.name].pop()
+            copy.get_factor(sus.replace('V','B')).log_values -= fac.log_values[0]
 
     # remove all appropriate variables and edges
     for var in seed:
-        adj_factors = model.get_adj_factors(var)
-        model.remove_variable(var)
-        model.remove_factors_from(adj_factors)
+        adj_factors = copy.get_adj_factors(var)
+        copy.remove_variable(var)
+        copy.remove_factors_from(adj_factors)
 
-    if not in_place:
-        return model
+    return copy
 
-def update_MF_of_neighbors(model, var):
-    '''
-        This modifies the GM 'model' by
-        updating the magnetic field of neighbors of variable 'var'
-    '''
-    # print('getting neighbors of {}'.format(var))
-    # print('node {} has {} neighbors'.format(var, model.degree(var)-1))
-
-    # get B-factors of the neighboring nodes (excluding index)
-    nbrs = get_neighbor_factors_of(model, var)
-
-    adj_factors = model.get_adj_factors(var) # adj_factors contains a B factor and neighboring F factors
-    factors = [fac for fac in adj_factors if 'F' in fac.name] # factors contains only F factors
-
-    # update the magnetic field of neighboring variables
-    for nbr in nbrs:
-        # collect the pair-wise factor containing the neighbor's bucket name
-        fac = [f for f in factors if nbr.name.replace('B', '') in f.name].pop()
-        # update the neighbor's magentic field
-        nbr.log_values -= fac.log_values[1]
-
-def compute_PF_of_modified_GM(model, index, ibound):
+def compute_PF_of_sub_GM(model, index, init_inf, ibound):
     '''
         Each computation done in parallel consists of
         1) updating the neighbors' magnetic field
         2) computing the partition function of the modified GM
     '''
     var = model.variables[index] # collect the ith variable name
-    copy = model.copy()
 
     # this modifies the GM copy by
     # removing var and factors connected to it
     # updating the neighbors' magnetic fields
+    N = len(model.variables)
 
-    # print('removing {} and associated neighbors'.format(var))
-    conditioned = condition_on_seeds_from(copy, [var], in_place=False)
+    conditioned = condition_on_seeds_from(model, [var], in_place=False)
+    factors = conditioned.get_factors_from([ith_object_name('B',i) for i in range(N) if i not in init_inf+[var]])
+    magnetizations = [fac.log_values[0] for fac in factors]
+    print(list(zip(factors, magnetizations)))
+    quit()
 
     try:
         # compute partition function of the modified GM
@@ -205,53 +157,52 @@ def compute_marginals(case, model, params):
 
     N = len(model.variables)
 
+    # condition_on_seeds_from(model, init_inf)
+    init_inf = [ith_object_name('V',var) for var in init_inf]
+    conditioned_on_init = condition_on_seeds_from(model, init_inf)
+    logZ = BucketRenormalization(conditioned_on_init, ibound=ibound).run()
     # ==========================================
     # Compute partition function for GM
     # ==========================================
-    try:
-        t1 = time.time()
-        logZ = BucketRenormalization(model, ibound=ibound).run()
-        t2 = time.time()
-        print('partition function = {}'.format(logZ))
-        print('time taken for GBR = {}'.format(t2-t1))
-    except Exception as e:
-        raise Exception(e)
+    # try:
+        # t1 = time.time()
+
+    #     t2 = time.time()
+    #     print('partition function = {}'.format(logZ))
+    #     print('time taken for GBR = {}'.format(t2-t1))
+    # except Exception as e:
+    #     raise Exception(e)
     # ==========================================
-
-    results=Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_modified_GM)(model, index, ibound) for index in range(N))
-
-    # collect partition functions of sub-GMs
-    logZi = []
-    for index in range(N):
-        logZi.append(results[index][1])
-
-    # compute marginal probabilities formula conditioned on initial seed
-    # ==========================================
-    factors = model.get_factors_from([ith_object_name('B',i) for i in range(1,N+1)])
-    magnetizations = [fac.log_values[0] for fac in factors]
-    norm = np.exp(magnetizations)
-
-    P = lambda i: norm[i]*np.exp(logZi[i])/np.exp(logZ)
-    # ==========================================
-
     # write data to file
     filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
+    utils.append_to_csv(filename, ['Tract', 'CALI'])
 
-    utils.append_to_csv(filename, ['Tract', 'logZi', 'time', 'CALI'])
+    # P = lambda i: np.exp(-H_a)*np.exp(logZi[i])/np.exp(logZ)
+    # healthy = list(set(model.variables).difference(set(init_inf)))
     for index in range(N):
-        marg_prob = P(index)
-        CALI = 2*P(index)-1
-        utils.append_to_csv(filename, [results[index][0],results[index][1],results[index][2], CALI])
-    utils.append_to_csv(filename, ['whole GM',logZ,t2-t1, 'N/A'])
+        var = model.variables[index]
+        if var in init_inf: continue
+        print(init_inf+[var])
+        conditioned_on_init_and_var = condition_on_seeds_from(model, init_inf+[var])
+        logZi = BucketRenormalization(conditioned_on_init_and_var, ibound=ibound).run()
+        marg_prob = np.exp(-H_a)*np.exp(logZi)/np.exp(logZ)
+        CALI = 2*marg_prob-1
+        utils.append_to_csv(filename, [model.variables[index], CALI])
 
 
+    # results=Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_sub_GM)(conditioned_on_init, index, init_inf, ibound) for index in range(N-1))
 
+
+    utils.append_to_csv(filename, ['whole GM',logZ])
+
+
+'''
 def compute_PF_of_modified_GM_BE(model, index):
-    '''
+    '
         Each computation done in parallel consists of
         1) updating the neighbors' magnetic field
         2) computing the partition function of the modified GM
-    '''
+    '
     var = model.variables[index] # collect the ith variable name
     copy = model.copy()
 
@@ -324,82 +275,11 @@ def compute_marginals_BE(case, model, params):
         marg_prob = P(index)
         CALI = 2*P(index)-1
         utils.append_to_csv(filename, [results[index][0],results[index][1],results[index][2], CALI])
-    utils.append_to_csv(filename, ['whole GM',logZ,t2-t1, 'N/A'])
-
-# def compute_PF_of_modified_GM_BE(model, index):
-#     '''
-#         Each computation done in parallel consists of
-#         1) removing the index variable and associated edges
-#         2) updating the neighbors' magnetic field
-#         3) compute the partition function of the modified GM
-#     '''
-#     var = model.variables[index] # collect the ith variable name
-#     copy = model.copy()
-#
-#     # this modifies the GM copy by
-#     # removing var and factors connected to it
-#     # updating the neighbors' magnetic fields
-#
-#     update_MF_of_neighbors(copy, var)
-#
-#     try:
-#         # compute partition function of the modified GM
-#         t1 = time.time()
-#         logZ_copy = BucketElimination(copy).run()
-#         t2 = time.time()
-#         print('partition function for {} is complete: {} (time taken: {})'.format(var, logZ_copy, t2 - t1))
-#         return [var, logZ_copy, t2 - t1]
-#     except Exception as e:
-#         print(e)
-#         return []
-#
-#
-# def compute_marginals_BE(case, model, params):
-#     init_inf, H_a, MU = params
-#
-#     # ==========================================
-#     # Compute partition function for GM
-#     # ==========================================
-#     try:
-#         t1 = time.time()
-#         logZ = BucketElimination(model).run()
-#         t2 = time.time()
-#         print('partition function = {}'.format(logZ))
-#         print('time taken for GBR = {}'.format(t2-t1))
-#     except Exception as e:
-#         raise Exception(e)
-#     # ==========================================
-#
-#     N = len(model.variables)
-#
-#     results=[]
-#     results.append(
-#         Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_modified_GM_BE)(model, index) for index in range(N))
-#     )
-#
-#     # collect partition functions of sub-GMs
-#     logZi = []
-#     for index in range(N):
-#         logZi.append(results[0][index][1])
-#
-#     # compute marginal probabilities formula conditioned on initial seed
-#     # ==========================================
-#     norm = np.exp([model.get_factor(ith_object_name('B',i)).log_values[1] for i in range(1,N+1)])
-#     P = lambda i: logZi[i]/logZ
-#     # ==========================================
-#
-#     # write data to file
-#     filename = "{}_{}_marg_prob_init_inf={}_H_a={}_MU={}.csv".format("BE", case, init_inf, H_a, MU)
-#
-#     utils.append_to_csv(filename, ['Tract', 'logZi', 'time', 'logZi/logZ'])
-#     for index in range(N):
-#         marg_prob = P(index)
-#         utils.append_to_csv(filename, [results[0][index][0],results[0][index][1],results[0][index][2], marg_prob])
-#     utils.append_to_csv(filename, ['whole GM',logZ,t2-t1, 'N/A'])
+    utils.append_to_csv(filename, ['whole GM',logZ,t2-t1, 'N/A'])'''
 
 
-def degree_distribution(model, G, params):
-    '''degree distribution'''
+'''def degree_distribution(model, G, params):
+    'degree distribution'
     H_a, MU = params
     degree = [model.degree(var) for var in model.variables]
     weights = [G[i][j]['weight'] for i,j in G.edges]
@@ -413,7 +293,7 @@ def degree_distribution(model, G, params):
     plt.title(R"$\beta$ = {}, $\mu$ = {}," "\n" "max J = {}, min J = {}".format(H_a, MU, maxJ, minJ))
     plt.savefig('./results/H_a={}_MU={}_maxJ={}_minJ={}.png'.format(H_a, MU, maxJ, minJ))
     plt.show()
-    # quit()
+    # quit()'''
 
 '''def generate_star(N):
     model = GraphicalModel()
