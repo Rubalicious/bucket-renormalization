@@ -149,7 +149,7 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
         return
     elif alg == 'BE':
         # exact
-        compute_marginals_BE(case, model, (init_inf, H_a, MU))
+        compute_marginals(case, model, (init_inf, H_a, MU, ibound), alg = "BE")
         return
     elif alg == 'BE_true':
         logZ = BucketElimination(model).run()
@@ -213,13 +213,65 @@ def compare_subplots():
     fig.text(0.04, 0.5, r"$\mu$", va='center', rotation='vertical')
     plt.show()
 
+def MF_1_subplots():
+    HS = [1.0]
+    MUS = [1e-4,2e-4,4e-4,6e-4]
+
+    # fig, axes = plt.subplots(4, 1, sharex=True, sharey=True)
+    # files = os.listdir('./results')
+    for alg in ['GBR_ibound=20']:
+        for i in range(len(HS)):
+            for j in range(len(MUS)):
+                data = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format(alg, HS[i], MUS[j]))[1:-1]
+                CALI = [float(row[-1]) for row in data]
+                # print(CALI)
+                # plt.subplot(4,1,i+j*len(HS)+1)
+                # if alg == 'GBR_ibound=20': alg = 'Exact'
+                plt.plot(range(len(CALI)), CALI, label=r"$\mu$={}".format(MUS[j]))
+
+
+                # quit()
+    plt.title(r"$H_a$={} using GBR with ibound 20".format(HS[0]))
+    plt.legend(loc='upper right')
+    plt.xlabel('node number')
+    plt.ylabel('CALI')
+    # plt.text(0.5, 0.04, r"$H_a$", ha='center')
+    # plt.text(0.04, 0.5, r"$\mu$", va='center', rotation='vertical')
+    plt.show()
+
+def compare_exact_and_approx():
+    HS = [1.0]
+    MUS = [1e-4,2e-4,4e-4,6e-4]+[1e-3, 2e-3, 4e-3, 6e-3]
+
+    # fig, axes = plt.subplots(4, 1, sharex=True, sharey=True)
+    # files = os.listdir('./results')
+    for alg in ['BE']: # 'GBR_ibound=20',
+        for i in range(len(HS)):
+            for j in range(len(MUS)):
+                data = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format(alg, HS[i], MUS[j]))[1:-1]
+                CALI = [float(row[-1]) for row in data]
+                # print(CALI)
+                # plt.subplot(4,1,i+j*len(HS)+1)
+                # if alg == 'GBR_ibound=20': alg = 'Exact'
+                plt.plot(range(len(CALI)), CALI, label=alg.replace('_ibound=','')+r", $\mu$={}".format(MUS[j]))
+
+
+                # quit()
+    plt.title(r"H_a={}".format(HS[0]))
+    plt.legend(loc='upper right')
+    plt.xlabel('node number')
+    plt.ylabel('CALI')
+    # plt.text(0.5, 0.04, r"$H_a$", ha='center')
+    # plt.text(0.04, 0.5, r"$\mu$", va='center', rotation='vertical')
+    plt.show()
 
 def generate_data_for(H_a, MU):
     # implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = H_a, MU = MU)
     # implement(case = 'seattle', alg = 'MF', init_inf = [0], H_a = H_a, MU = MU)
-    implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 5)
+    # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 5)
     # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 10)
     # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
+    implement(case = 'seattle', alg = 'BE', init_inf = [0], H_a = H_a, MU = MU)
 
 
 # H_a = 0.01
@@ -233,15 +285,18 @@ def generate_data_for(H_a, MU):
 # fix mu = 0, vary H_a
 # fix H, increase MU, ==> CALI --> +1
 #
-# HS = [1e-2,5e-2,1e-1]
+# HS = [.1, 0.01, 0.05]
 # MUS = [1e-4,2e-4,4e-4,6e-4]
+# # MUS = [1e-3, 2e-3, 4e-3, 6e-3]
 # for mu in MUS:
 #     for H_a in HS:
 #         print("running experiments for mu={}, H_a = {}".format(mu, H_a))
 #         generate_data_for(H_a, mu)
         # plot_result(H_a, mu)
 
+# MF_1_subplots()
 # compare_subplots()
+# compare_exact_and_approx()
 
 
 # mu=0.0001, h=0.01

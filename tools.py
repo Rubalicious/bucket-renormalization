@@ -149,7 +149,7 @@ def condition_on_seeds_from(model, seed):
 #         print(e)
 #         return []
 
-def compute_marginals(case, model, params):
+def compute_marginals(case, model, params, alg="GBR"):
     init_inf, H_a, MU, ibound = params
 
 
@@ -158,10 +158,16 @@ def compute_marginals(case, model, params):
     # condition_on_seeds_from(model, init_inf)
     init_inf = [ith_object_name('V',var) for var in init_inf]
     conditioned_on_init = condition_on_seeds_from(model, init_inf)
-    logZ = BucketRenormalization(conditioned_on_init, ibound=ibound).run()
-    # logZ = BucketElimination(conditioned_on_init).run()
+    if alg == "GBR":
+        logZ = BucketRenormalization(conditioned_on_init, ibound=ibound).run()
+        filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
+    elif alg == "BE":
+        logZ = BucketElimination(conditioned_on_init).run()
+        filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("BE", case, init_inf, H_a, MU)
+    else:
+        raise("Algorithm not defined")
 
-    filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
+    # filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
     utils.append_to_csv(filename, ['Tract', 'CALI'])
 
     # P = lambda i: np.exp(-H_a)*np.exp(logZi[i])/np.exp(logZ)
@@ -174,12 +180,14 @@ def compute_marginals(case, model, params):
         if var in init_inf: continue # skip
 
         conditioned_on_init_and_var = condition_on_seeds_from(model, init_inf+[var])
-        logZi = BucketRenormalization(conditioned_on_init_and_var, ibound=ibound).run()
-        # logZi = BucketElimination(conditioned_on_init_and_var).run()
+        if alg == "GBR":
+            logZi = BucketRenormalization(conditioned_on_init_and_var, ibound=ibound).run()
+        elif alg == "BE":
+            logZi = BucketElimination(conditioned_on_init_and_var).run()
 
         # need the edge factors connected to infected nodes
         # J_vals = sum([fac.log_values[0][0] for fac in model.factors if 'F' in fac.name and set(init_inf).intersection(set(fac.variables))])
-        
+
         J_val = model.get_factor('F({},{})'.format(init_inf[0][1:],var[1:])).log_values[0][0]
         # the update rule
         # norm = np.exp(-H_a)
