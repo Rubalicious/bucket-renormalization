@@ -325,8 +325,8 @@ def CALI_vs_node_number(HS, MUS, init_inf):
 
 # init_inf = [2,4,6,7]
 # init_inf = [2,4,]
-HS = [0.05, 0.1, 0.5, 1.0, 5.0]
-MUS = np.round(np.linspace(0.0,5e-4, 25),7)
+HS = [5.0]
+MUS = np.round(np.linspace(0.0,1.6e-3, 25),7)
 for inf in range(10):
     CALI_vs_node_number(HS, MUS, [inf])
     print("CALI vs. NN inf={} complete".format(inf))
