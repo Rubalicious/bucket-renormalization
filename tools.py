@@ -37,6 +37,18 @@ def time_it(func):
         print('time taken: {}'.format(t2-t1))
     return wrapper
 
+def extract_data_top10(MU=0.002):
+    # Read Data
+    data = pd.read_csv('./seattle/seattle_10sameArea_travel_numbers.csv', header=None).values
+    int_data = []
+    for row in data:
+        int_data.append([int(entry) for entry in row])
+    data = np.array(int_data)
+
+    # alternate way of estimating J
+    J = data*np.log(1/(1-MU))
+    return J
+
 def extract_data_top20(case, MU=0.002):
     # Read Data
     data = pd.read_csv('./{}/{}_top20_travel_numbers.csv'.format(case, case), header=None).values
@@ -119,89 +131,55 @@ def condition_on_seeds_from(model, seed):
 
     return copy
 
-# def compute_PF_of_sub_GM(model, index, init_inf, ibound):
-#     '''
-#         Each computation done in parallel consists of
-#         1) updating the neighbors' magnetic field
-#         2) computing the partition function of the modified GM
-#     '''
-#     var = model.variables[index] # collect the ith variable name
-#
-#     # this modifies the GM copy by
-#     # removing var and factors connected to it
-#     # updating the neighbors' magnetic fields
-#     N = len(model.variables)
-#
-#     conditioned = condition_on_seeds_from(model, [var], in_place=False)
-#     factors = conditioned.get_factors_from([ith_object_name('B',i) for i in range(N) if i not in init_inf+[var]])
-#     magnetizations = [fac.log_values[0] for fac in factors]
-#     print(list(zip(factors, magnetizations)))
-#     quit()
-#
-#     try:
-#         # compute partition function of the modified GM
-#         t1 = time.time()
-#         logZ_copy = BucketRenormalization(conditioned, ibound=ibound).run()
-#         t2 = time.time()
-#         print('partition function for {} is complete: {} (time taken: {}) - ibound = {}'.format(var, logZ_copy, t2 - t1, ibound))
-#         return [var, logZ_copy, t2 - t1]
-#     except Exception as e:
-#         print(e)
-#         return []
-
-def compute_marginals(case, model, params, alg="GBR"):
+def compute_marginals(model, params, alg="GBR"):
     init_inf, H_a, MU, ibound = params
-
 
     N = len(model.variables)
 
+
     # condition_on_seeds_from(model, init_inf)
+    # print(init_inf)
     init_inf = [ith_object_name('V',var) for var in init_inf]
     conditioned_on_init = condition_on_seeds_from(model, init_inf)
+
     if alg == "GBR":
         logZ = BucketRenormalization(conditioned_on_init, ibound=ibound).run()
-        filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
     elif alg == "BE":
         logZ = BucketElimination(conditioned_on_init).run()
-        filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("BE", case, init_inf, H_a, MU)
     else:
         raise("Algorithm not defined")
 
-    # filename = "{}_ibound={}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format("GBR",ibound, case, init_inf, H_a, MU)
-    utils.append_to_csv(filename, ['Tract', 'CALI'])
-
-    # P = lambda i: np.exp(-H_a)*np.exp(logZi[i])/np.exp(logZ)
-    # healthy = list(set(model.variables).difference(set(init_inf)))
-
-
-
+    CALIs = []
+    # results=Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_sub_GM)(conditioned_on_init, index, init_inf, ibound) for index in range(N-1))
     for index in range(N):
         var = model.variables[index]
-        if var in init_inf: continue # skip
+        if var in init_inf:
+            # CALIs.append(1)
+            continue #skip the rest
 
         conditioned_on_init_and_var = condition_on_seeds_from(model, init_inf+[var])
         if alg == "GBR":
             logZi = BucketRenormalization(conditioned_on_init_and_var, ibound=ibound).run()
         elif alg == "BE":
+
             logZi = BucketElimination(conditioned_on_init_and_var).run()
 
         # need the edge factors connected to infected nodes
-        # J_vals = sum([fac.log_values[0][0] for fac in model.factors if 'F' in fac.name and set(init_inf).intersection(set(fac.variables))])
-
-        J_val = model.get_factor('F({},{})'.format(init_inf[0][1:],var[1:])).log_values[0][0]
-        # the update rule
-        # norm = np.exp(-H_a)
-        # norm = 1
+        t0 = np.min([int(init_inf[0][1:]), int(var[1:])])
+        t1 = np.max([int(init_inf[0][1:]), int(var[1:])])
+        J_val = model.get_factor('F({},{})'.format(t0,t1)).log_values[0][0]
 
         marg_prob = np.exp( logZi - logZ - H_a + J_val)
         CALI = 2*marg_prob-1
-        utils.append_to_csv(filename, [model.variables[index], CALI])
+        CALIs.append(CALI)
+
+    return CALIs
 
 
-    # results=Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_sub_GM)(conditioned_on_init, index, init_inf, ibound) for index in range(N-1))
 
 
-    utils.append_to_csv(filename, ['whole GM',logZ])
+
+
 
 
 '''

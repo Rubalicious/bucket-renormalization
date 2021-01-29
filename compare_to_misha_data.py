@@ -175,19 +175,22 @@ def compare_subplots_misha():
 
     for i in range(len(HS)):
         for j in range(len(MUS)):
-            data = misha_data['h={} mu={}'.format(HS[i],MUS[j])][1]
-            k = 0
+            data = misha_data['h={} mu={}'.format(HS[i],MUS[j])][0]
+
             for probabilities in [data]:
                 cali = CALI(probabilities)
                 # print(CALI)
                 plt.subplot(4,3,i+j*len(HS)+1)
-                data1 = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format('BE', HS[i], MUS[j]))[1:-1]
-                Cali = [float(row[-1]) for row in data1]
-                plt.plot(range(len(cali)), cali, '-', label='inferlo')
-                plt.plot(range(len(Cali)), Cali,'--', label='BE')
+                # data1 = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format('BE', HS[i], MUS[j]))[1:-1]
+                # # data1 = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format('BE', HS[i], MUS[j]))[1:-1]
+                # Cali = [float(row[-1]) for row in data1]
 
-                k+=1
+                plt.plot(range(len(cali)), cali, '-', label='inferlo')
                 plt.title(r"$\mu$={}, $H_a$={}".format(MUS[j], HS[i]), fontsize=8)
+            Cali = implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = HS[i], MU = MUS[j])
+            plt.plot(range(len(Cali)), Cali,'--', label='BE')
+
+
 
                 # quit()
     plt.legend(loc='upper right')
