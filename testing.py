@@ -259,16 +259,45 @@ def CALI_vs_mu(HS, MUS, init_inf):
 
     # print(CALI)
     for H in HS:
+        filename = "CALI_vs_mu_H={}_initinf={}.csv".format(H, init_inf[0]+1)
+        utils.append_to_csv(filename,['MU','CALIs'])
         for MU in MUS:
             CALI = implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = H, MU = MU)
+            utils.append_to_csv(filename,[MU, CALI])
             plt.plot( MU*np.ones([len(CALI)]), CALI, '*b')
-        plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',init_inf[0])))
+        plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',init_inf[0]+1)))
         plt.xlabel(r"$\mu$")
         plt.ylabel('CALI')
-        plt.axis([0, MUS[-1], -1.1, 1.1])
-        plt.savefig("./results/CALIvsmu_initinf_={}_MU_range[{},{}]_H={}.png".format(init_inf,MUS[0],MUS[-1], H))
+        plt.axis([MUS[0], MUS[-1], -1.1, 1.1])
+        plt.savefig("./results/CALIvsmu_H={}_MUrange=[{},{}]_initinf={}.png".format(H, MUS[0], MUS[-1], init_inf[0]+1))
         plt.clf()
         # plt.show()
+
+def CALI_vs_node_number(HS, MUS, init_inf):
+    for alg in ['BE']: # ,'GBR_ibound=20'
+        for i in range(len(HS)):
+            filename = "CALI_vs_node_number_initinf={}_H={}.csv".format(init_inf[0]+1, HS[i])
+            utils.append_to_csv(filename, ['CALIs'])
+            utils.append_to_csv(filename, list(range(1,11)))
+            for j in range(len(MUS)):
+                CALI = implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = HS[i], MU = MUS[j])
+                utils.append_to_csv(filename, [CALI])
+                # for idx,val in enumerate(CALI):
+
+                plt.plot( range(len(CALI)), CALI,'*-')
+                # continue
+                # meanCALI.append(np.mean(CALI))
+                # plt.plot(MUS[j], np.mean(CALI),'*', label=r"$\mu$={}".format(MUS[j]))
+            # plt.plot(MUS, meanCALI)
+            # plt.show()
+            plt.title(r"H_a={}, infected node {}".format(HS[i], ith_object_name('V',init_inf[0]+1)))
+            plt.xticks(range(0, len(CALI)))
+            plt.xlabel(r"node number")
+            plt.ylabel('CALI')
+            plt.axis([0, len(CALI)-1, -1.1, 1.1])
+            plt.savefig("./results/CALI_vs_node_number_initinf={}_MU_range[{},{}]_H={}.png".format(init_inf[0]+1,MUS[0],MUS[-1], HS[i]))
+            # plt.show()
+        plt.clf()
 
 def generate_data_for(H_a, MU, init_inf=[0]):
     # implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = H_a, MU = MU)
@@ -277,26 +306,6 @@ def generate_data_for(H_a, MU, init_inf=[0]):
     # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 10)
     # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
     implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = H_a, MU = MU)
-
-def CALI_vs_node_number(HS, MUS, init_inf):
-    for alg in ['BE']: # ,'GBR_ibound=20'
-        for i in range(len(HS)):
-            for j in range(len(MUS)):
-                CALI = implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = HS[i], MU = MUS[j])
-                plt.plot( range(len(CALI)), CALI,'*-')
-                # continue
-                # meanCALI.append(np.mean(CALI))
-                # plt.plot(MUS[j], np.mean(CALI),'*', label=r"$\mu$={}".format(MUS[j]))
-            # plt.plot(MUS, meanCALI)
-            # plt.show()
-            plt.title(r"H_a={}, infected node {}".format(HS[i], ith_object_name('V',init_inf[0])))
-            plt.xticks(range(0, len(CALI)))
-            plt.xlabel(r"node number")
-            plt.ylabel('CALI')
-            plt.axis([0, len(CALI)-1, -1.1, 1.1])
-            plt.savefig("./results/CALI_vs_node_number_initinf={}_MU_range[{},{}]_H={}.png".format(init_inf,MUS[0],MUS[-1], HS[i]))
-            # plt.show()
-        plt.clf()
 
 # H_a = 0.01
 # MU = 3e-4
@@ -325,8 +334,40 @@ def CALI_vs_node_number(HS, MUS, init_inf):
 
 # init_inf = [2,4,6,7]
 # init_inf = [2,4,]
+HS = [0.5]
+MUS = np.round(np.linspace(0,2.1e-4, 25),7)
+for inf in range(10):
+    CALI_vs_node_number(HS, MUS, [inf])
+    print("CALI vs. NN inf={} complete".format(inf))
+    CALI_vs_mu(HS, MUS, [inf])
+    print("CALI vs. MU inf={} complete".format(inf))
+
+HS = [0.05]
+MUS = np.round(np.linspace(0,6.5e-5, 25),7)
+for inf in range(10):
+    CALI_vs_node_number(HS, MUS, [inf])
+    print("CALI vs. NN inf={} complete".format(inf))
+    CALI_vs_mu(HS, MUS, [inf])
+    print("CALI vs. MU inf={} complete".format(inf))
+
+HS = [1.0]
+MUS = np.round(np.linspace(0,4.5e-4, 25),7)
+for inf in range(10):
+    CALI_vs_node_number(HS, MUS, [inf])
+    print("CALI vs. NN inf={} complete".format(inf))
+    CALI_vs_mu(HS, MUS, [inf])
+    print("CALI vs. MU inf={} complete".format(inf))
+
+HS = [0.1]
+MUS = np.round(np.linspace(0,1.2e-4, 25),7)
+for inf in range(10):
+    CALI_vs_node_number(HS, MUS, [inf])
+    print("CALI vs. NN inf={} complete".format(inf))
+    CALI_vs_mu(HS, MUS, [inf])
+    print("CALI vs. MU inf={} complete".format(inf))
+
 HS = [5.0]
-MUS = np.round(np.linspace(0.0,1.6e-3, 25),7)
+MUS = np.round(np.linspace(8e-4,0,1.7e-3, 25),7)
 for inf in range(10):
     CALI_vs_node_number(HS, MUS, [inf])
     print("CALI vs. NN inf={} complete".format(inf))
