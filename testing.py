@@ -287,13 +287,14 @@ def generate_data_for(H_a, MU, init_inf=[0]):
     # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
     implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = H_a, MU = MU)
 
-def CALI_vs_mu(HS, MUS):
+def CALI_vs_mu(config):
     # for alg in ['BE']: # ,'GBR_ibound=20'
         # for i in range(len(HS)):
     meanCALI = []
     # for j in range(len(MUS)):
-    H = HS[0]
-    MU = MUS[0]
+    HS = list(config.keys())
+    # MUS = list(config.values())
+    print(config[HS[0]])
 
     # print(CALI)
     data = {}
@@ -304,46 +305,49 @@ def CALI_vs_mu(HS, MUS):
         for inf in range(20):
             init_inf = [inf]
             for H in HS:
-                # filename = "CALI_vs_MU_alg={}_H={}.csv".format(alg, H, init_inf[0]+1)
-                for MU in MUS:
+                for MU in config[H]:
                     CALI = implement(case = 'seattle', alg = alg[:3], init_inf = init_inf, H_a = H, MU = MU, ibound = ibound)
-                    data[alg][str((MU,ith_object_name('V',init_inf[0]+1)))] = CALI
+                    data[alg][ str((H,ith_object_name('V',init_inf[0]+1))) ] = {MU:CALI}
                     plt.plot( MU*np.ones([len(CALI)]), CALI, '*b')
                     print("Algorthim={}, inf={}, H={}, MU={} complete".format(alg,inf,H, MU))
             plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',init_inf[0]+1)))
             plt.xlabel(r"$\mu$")
             plt.ylabel('CALI')
-            plt.axis([MUS[0], MUS[-1], -1.1, 1.1])
-            plt.savefig("./results/CALIvsMU_alg_{}_H={}_MUrange=[{},{}]_initinf={}.png".format(alg,H, MUS[0], MUS[-1], init_inf[0]+1))
+            plt.axis([config[H][0], config[H][-1], -1.1, 1.1])
+            plt.savefig("./results/CALIvsMU_alg_{}_H={}_MUrange=[{},{}]_initinf={}.png".format(alg,H, config[H][0], config[H][-1], init_inf[0]+1))
             plt.clf()
-    with open("./results/CALI_vs_mu_H={}_initinf={}.json".format(H, init_inf[0]+1), 'w') as outfile:
+    with open("./results/CALI_vs_mu.json", 'w') as outfile:
         json.dump(data, outfile)
         # plt.show()
 
-# HS = [0.05]
-# MUS = np.round(np.linspace(0,3e-3, 30),7)
+config = {
+    0.05:   np.round(np.linspace(0,3e-3, 30),7),
+    0.1:    np.round(np.linspace(0,4e-3, 30),7),
+    0.5:    np.round(np.linspace(0,8e-3, 30),7),
+    1.0:    np.round(np.linspace(0,5e-2, 30),7),
+    5.0:    np.round(np.linspace(0,1e-1, 30),7)
+}
+CALI_vs_mu(config)
+
+# HS = [0.1]
+# MUS = np.round(np.linspace(0,4e-3, 30),7)
 # CALI_vs_mu(HS, MUS)
 # print("CALI vs. MU H={} complete".format(HS[0]))
-
-HS = [0.1]
-MUS = np.round(np.linspace(0,4e-3, 30),7)
-CALI_vs_mu(HS, MUS)
-print("CALI vs. MU H={} complete".format(HS[0]))
-
-HS = [0.5]
-MUS = np.round(np.linspace(0,8e-3, 30),7)
-CALI_vs_mu(HS, MUS)
-print("CALI vs. MU H={} complete".format(HS[0]))
-
-HS = [1.0]
-MUS = np.round(np.linspace(0,1e-2, 30),7)
-CALI_vs_mu(HS, MUS)
-print("CALI vs. MU H={} complete".format(HS[0]))
-
-HS = [5.0]
-MUS = np.round(np.linspace(8e-4,0,2e-2, 30),7)
-CALI_vs_mu(HS, MUS)
-print("CALI vs. MU H={} complete".format(HS[0]))
+#
+# HS = [0.5]
+# MUS = np.round(np.linspace(0,8e-3, 30),7)
+# CALI_vs_mu(HS, MUS)
+# print("CALI vs. MU H={} complete".format(HS[0]))
+#
+# HS = [1.0]
+# MUS = np.round(np.linspace(0,5e-2, 30),7)
+# CALI_vs_mu(HS, MUS)
+# print("CALI vs. MU H={} complete".format(HS[0]))
+#
+# HS = [5.0]
+# MUS = np.round(np.linspace(8e-4,1e-1, 30),7)
+# CALI_vs_mu(HS, MUS)
+# print("CALI vs. MU H={} complete".format(HS[0]))
 # CALIs = implement(case = 'seattle',  init_inf = [0], H_a = 1.0, MU = 0, ibound=20, alg = 'BE')
 # print(CALIs)
 # CALI_vs_node_number(HS, MUS, init_inf)
