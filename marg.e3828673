@@ -1,0 +1,7 @@
+Badly placed ()'s.
+Traceback (most recent call last):
+  File "testing.py", line 345, in <module>
+    CALI_vs_mu(HS, MUS)
+  File "testing.py", line 296, in CALI_vs_mu
+    MU = MUS[0]
+IndexError: index 0 is out of bounds for axis 0 with size 0
