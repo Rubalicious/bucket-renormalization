@@ -149,13 +149,11 @@ def compute_marginals(model, params, alg="GBR"):
     else:
         raise("Algorithm not defined")
 
-    CALIs = []
-    # results=Parallel(n_jobs=mp.cpu_count())(delayed(compute_PF_of_sub_GM)(conditioned_on_init, index, init_inf, ibound) for index in range(N-1))
-    for index in range(N):
+
+    def subroutine_in_parallel(model, index, init_inf, ibound):
         var = model.variables[index]
         if var in init_inf:
-            # CALIs.append(1)
-            continue #skip the rest
+            return +1
 
         conditioned_on_init_and_var = condition_on_seeds_from(model, init_inf+[var])
         if alg == "GBR":
@@ -171,7 +169,33 @@ def compute_marginals(model, params, alg="GBR"):
 
         marg_prob = np.exp( logZi - logZ - H_a + J_val)
         CALI = 2*marg_prob-1
-        CALIs.append(CALI)
+        # CALIs.append(CALI)
+        return CALI
+
+
+    CALIs=Parallel(n_jobs=mp.cpu_count())(delayed(subroutine_in_parallel)(model, index, init_inf, ibound) for index in range(N))
+    # for index in range(N):
+    #
+    #     var = model.variables[index]
+    #     if var in init_inf:
+    #         CALIs.append(1)
+    #         continue #skip the rest
+    #
+    #     conditioned_on_init_and_var = condition_on_seeds_from(model, init_inf+[var])
+    #     if alg == "GBR":
+    #         logZi = BucketRenormalization(conditioned_on_init_and_var, ibound=ibound).run()
+    #     elif alg == "BE":
+    #
+    #         logZi = BucketElimination(conditioned_on_init_and_var).run()
+    #
+    #     # need the edge factors connected to infected nodes
+    #     t0 = np.min([int(init_inf[0][1:]), int(var[1:])])
+    #     t1 = np.max([int(init_inf[0][1:]), int(var[1:])])
+    #     J_val = model.get_factor('F({},{})'.format(t0,t1)).log_values[0][0]
+    #
+    #     marg_prob = np.exp( logZi - logZ - H_a + J_val)
+    #     CALI = 2*marg_prob-1
+    #     CALIs.append(CALI)
 
     return CALIs
 
