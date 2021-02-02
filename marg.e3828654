@@ -1,7 +1,0 @@
-Badly placed ()'s.
-Traceback (most recent call last):
-  File "testing.py", line 1, in <module>
-    from tools import *
-  File "/groups/chertkov/rabrams/bucket-renormalization/tools.py", line 9, in <module>
-    import protocols
-ImportError: bad magic number in 'protocols': b'\xd1\xf2\r\n'
