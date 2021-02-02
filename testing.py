@@ -325,25 +325,25 @@ MUS = np.round(np.linspace(0,3e-3, 30),7)
 CALI_vs_mu(HS, MUS)
 print("CALI vs. MU H={} complete".format(HS[0]))
 
-HS = [0.1]
-MUS = np.round(np.linspace(0,4e-3, 30),7)
-CALI_vs_mu(HS, MUS)
-print("CALI vs. MU H={} complete".format(HS[0]))
+#HS = [0.1]
+#MUS = np.round(np.linspace(0,4e-3, 30),7)
+#CALI_vs_mu(HS, MUS)
+#print("CALI vs. MU H={} complete".format(HS[0]))
 
-HS = [0.5]
-MUS = np.round(np.linspace(0,8e-3, 30),7)
-CALI_vs_mu(HS, MUS)
-print("CALI vs. MU H={} complete".format(HS[0]))
+#HS = [0.5]
+#MUS = np.round(np.linspace(0,8e-3, 30),7)
+#CALI_vs_mu(HS, MUS)
+#print("CALI vs. MU H={} complete".format(HS[0]))
 
-HS = [1.0]
-MUS = np.round(np.linspace(0,1e-2, 30),7)
-CALI_vs_mu(HS, MUS)
-print("CALI vs. MU H={} complete".format(HS[0]))
+#HS = [1.0]
+#MUS = np.round(np.linspace(0,1e-2, 30),7)
+#CALI_vs_mu(HS, MUS)
+#print("CALI vs. MU H={} complete".format(HS[0]))
 
-HS = [5.0]
-MUS = np.round(np.linspace(8e-4,0,2e-2, 30),7)
-CALI_vs_mu(HS, MUS)
-print("CALI vs. MU H={} complete".format(HS[0]))
+#HS = [5.0]
+#MUS = np.round(np.linspace(8e-4,0,2e-2, 30),7)
+#CALI_vs_mu(HS, MUS)
+#print("CALI vs. MU H={} complete".format(HS[0]))
 # CALIs = implement(case = 'seattle',  init_inf = [0], H_a = 1.0, MU = 0, ibound=20, alg = 'BE')
 # print(CALIs)
 # CALI_vs_node_number(HS, MUS, init_inf)
