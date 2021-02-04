@@ -301,7 +301,6 @@ def CALI_vs_mu(config):
                     init_inf = [inf]
                     print(alg, inf, H, MU)
                     CALI = implement(case = 'seattle', alg = alg[:3], init_inf = init_inf, H_a = H, MU = MU, ibound = ibound)
-                    if alg == 'BE': alg = 'exact'
                     data[alg][ str((H,init_inf[0]+1)) ] = {MU:CALI}
                     plt.plot( MU*np.ones([len(CALI)]), CALI, '*b')
                     print("Algorthim={}, inf={}, H={}, MU={} complete".format(alg,inf,H, MU))
