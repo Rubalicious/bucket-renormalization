@@ -291,7 +291,7 @@ def CALI_vs_mu(config):
     meanCALI = []
     HS = list(config.keys())
     data = {}
-    for alg in ['GBR20','GBR15','BE']: # ,'GBR_ibound=20'
+    for alg in ['GBR20','GBR15','BE']:
         data[alg] = {}
         ibound=10
         if 'GBR' in alg: ibound = int(alg[-2:])
@@ -299,7 +299,7 @@ def CALI_vs_mu(config):
             for inf in range(20):
                 data[alg][str((H,inf))] = {}
                 for MU in config[H]:
-                    CALI = implement(case = 'seattle', alg = alg[:3], init_inf = init_inf, H_a = H, MU = MU, ibound = ibound)
+                    CALI = implement(case = 'seattle', alg = alg[:3], init_inf = [inf], H_a = H, MU = MU, ibound = ibound)
                     data[alg][str((H,inf))][MU] = CALI
                 plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',init_inf[0]+1)))
                 plt.xlabel(r"$\mu$")
