@@ -288,44 +288,38 @@ def generate_data_for(H_a, MU, init_inf=[0]):
     implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = H_a, MU = MU)
 
 def CALI_vs_mu(config):
-    # for alg in ['BE']: # ,'GBR_ibound=20'
-        # for i in range(len(HS)):
     meanCALI = []
-    # for j in range(len(MUS)):
     HS = list(config.keys())
-    # MUS = list(config.values())
-    print(config[HS[0]])
-
-    # print(CALI)
     data = {}
-    for alg in ['GBR20','GBR10','BE']: # ,'GBR_ibound=20'
+    for alg in ['GBR20','GBR15','BE']: # ,'GBR_ibound=20'
         data[alg] = {}
         ibound=10
         if 'GBR' in alg: ibound = int(alg[-2:])
-        for inf in range(20):
-            init_inf = [inf]
-            for H in HS:
+        for H in HS:
+            for inf in range(20):
                 for MU in config[H]:
+                    init_inf = [inf]
+                    print(alg, inf, H, MU)
                     CALI = implement(case = 'seattle', alg = alg[:3], init_inf = init_inf, H_a = H, MU = MU, ibound = ibound)
-                    data[alg][ str((H,ith_object_name('V',init_inf[0]+1))) ] = {MU:CALI}
+                    if alg == 'BE': alg = 'exact'
+                    data[alg][ str((H,init_inf[0]+1)) ] = {MU:CALI}
                     plt.plot( MU*np.ones([len(CALI)]), CALI, '*b')
                     print("Algorthim={}, inf={}, H={}, MU={} complete".format(alg,inf,H, MU))
-            plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',init_inf[0]+1)))
-            plt.xlabel(r"$\mu$")
-            plt.ylabel('CALI')
-            plt.axis([config[H][0], config[H][-1], -1.1, 1.1])
-            plt.savefig("./results/CALIvsMU_alg_{}_H={}_MUrange=[{},{}]_initinf={}.png".format(alg,H, config[H][0], config[H][-1], init_inf[0]+1))
-            plt.clf()
-    with open("./results/CALI_vs_mu.json", 'w') as outfile:
+                plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',init_inf[0]+1)))
+                plt.xlabel(r"$\mu$")
+                plt.ylabel('CALI')
+                plt.axis([config[H][0], config[H][-1], -1.1, 1.1])
+                plt.savefig("./results/CALIvsMU_alg_{}_H={}_MUrange=[{},{}]_initinf={}.png".format(alg,H, config[H][0], config[H][-1], init_inf[0]+1))
+                plt.clf()
+    with open("./results/CALI_vs_MU.json", 'w') as outfile:
         json.dump(data, outfile)
-        # plt.show()
 
 config = {
-    0.05:   np.round(np.linspace(0,3e-3, 30),7),
-    0.1:    np.round(np.linspace(0,4e-3, 30),7),
-    0.5:    np.round(np.linspace(0,8e-3, 30),7),
-    1.0:    np.round(np.linspace(0,5e-2, 30),7),
-    5.0:    np.round(np.linspace(0,1e-1, 30),7)
+    0.02:   np.round(np.linspace(0,6e-3, 30),7),
+    0.05:   np.round(np.linspace(0,6e-3, 30),7),
+    0.1:   np.round(np.linspace(0,6e-3, 30),7),
+    0.2:   np.round(np.linspace(0,6e-3, 30),7),
+    0.5:   np.round(np.linspace(0,6e-3, 30),7)
 }
 CALI_vs_mu(config)
 
