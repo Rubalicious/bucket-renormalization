@@ -297,13 +297,10 @@ def CALI_vs_mu(config):
         if 'GBR' in alg: ibound = int(alg[-2:])
         for H in HS:
             for inf in range(20):
+                data[alg][str((H,inf))] = {}
                 for MU in config[H]:
-                    init_inf = [inf]
-                    print(alg, inf, H, MU)
                     CALI = implement(case = 'seattle', alg = alg[:3], init_inf = init_inf, H_a = H, MU = MU, ibound = ibound)
-                    data[alg][ str((H,init_inf[0]+1)) ] = {MU:CALI}
-                    plt.plot( MU*np.ones([len(CALI)]), CALI, '*b')
-                    print("Algorthim={}, inf={}, H={}, MU={} complete".format(alg,inf,H, MU))
+                    data[alg][str((H,inf))][MU] = CALI
                 plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',init_inf[0]+1)))
                 plt.xlabel(r"$\mu$")
                 plt.ylabel('CALI')
