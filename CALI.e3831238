@@ -1,7 +1,0 @@
-Badly placed ()'s.
-Traceback (most recent call last):
-  File "testing.py", line 324, in <module>
-    CALI_vs_mu(config)
-  File "testing.py", line 305, in CALI_vs_mu
-    data[alg][ str((H,init_inf[0]+1)) ] = {MU:CALI}
-KeyError: 'exact'
