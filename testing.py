@@ -295,7 +295,7 @@ def CALI_vs_MU(config):
     meanCALI = []
     HS = list(config.keys())
     data = {}
-    for alg in ['BE','GBR20','GBR15','GBR18','BP']:
+    for alg in ['BE','GBR20','GBR18','BP']:
         data[alg] = {}
         ibound=10
         if 'GBR' in alg: ibound = int(alg[-2:])
