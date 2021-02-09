@@ -132,6 +132,7 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
     # J = extract_data_top10(MU)
     # J = extract_data_top20(case, MU=MU)
     J = extract_data(case, MU)
+    print(np.shape(J))
 
     # create a complete graph GM
     model = generate_graphical_model(case, J, H_a)
@@ -141,7 +142,9 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
         # condition_on_seeds_from(model, init_inf)
         init_inf = [ith_object_name('V',var) for var in init_inf]
         conditioned_on_init = condition_on_seeds_from(model, init_inf)
-        logZ = BeliefPropagation(conditioned_on_init).run()
+        print("before")
+        logZ = BeliefPropagation(conditioned_on_init).run(max_iter=100, converge_thr=1e-4)
+        print("after")
         CALIs = []
         for index in range(len(J)):
             if ith_object_name('V',index) not in init_inf:
@@ -156,6 +159,13 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
         init_inf = [ith_object_name('V',var) for var in init_inf]
         conditioned_on_init = condition_on_seeds_from(model, init_inf)
         logZ = MeanField(conditioned_on_init).run()
+        for index in range(len(J)):
+            if ith_object_name('V',index) not in init_inf:
+                CALI = 2*logZ['marginals']['MARGINAL_V{}'.format(index)]-1
+                CALIs.append(CALI[1])
+            else:
+                CALIs.append(+1)
+        return CALIs
     elif alg == 'GBR':
         # approximate
         CALIs = compute_marginals( model, (init_inf, H_a, MU, ibound), alg = alg)
@@ -274,10 +284,9 @@ def generate_data_for(H_a, MU, init_inf=[0]):
     implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = H_a, MU = MU)
 
 def CALI_vs_MU(config):
-    meanCALI = []
     HS = list(config.keys())
     data = {}
-    for alg in ['GBR20','BP']:
+    for alg in ['BP','GBR20']:
         data[alg] = {}
         ibound=10
         if 'GBR' in alg: ibound = int(alg[-2:])
@@ -285,7 +294,9 @@ def CALI_vs_MU(config):
             for inf in range(20):
                 data[alg][str((H,inf+1))] = {}
                 for MU in config[H]:
+                    print("here")
                     CALI = implement(case = 'seattle', alg = alg[:3], init_inf = [inf], H_a = H, MU = MU, ibound = ibound)
+                    print("done")
                     data[alg][str((H,inf+1))][MU] = CALI
                     plt.plot(MU*np.ones(len(CALI)), CALI, '*')
                 plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',inf+1)))
@@ -300,7 +311,9 @@ def CALI_vs_MU(config):
 
 # number of MU
 N = 10
-mu = 6e-3
+mu = 6e-5
 mus = np.round(np.linspace(0,mu, N),5)
 config = {key: mus for key in [0.02, 0.05, 0.1, 0.2, 0.5]}
-CALI_vs_MU(config)
+# CALI_vs_MU(config)
+CALI = implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = mu, ibound = 50)
+print(CALI)
