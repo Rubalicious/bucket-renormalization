@@ -75,6 +75,7 @@ def recreate_pandemy(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU
     # extract data or a subset of the data
     J = extract_data_top20(case, MU)
 
+
     # create a complete graph GM
     model = generate_graphical_model(case, J, init_inf, H_a, condition_on_init_inf=False)
 
@@ -129,7 +130,8 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
     '''
     # extract data or a subset of the data
     # J = extract_data_top10(MU)
-    J = extract_data_top20(case, MU=MU)
+    # J = extract_data_top20(case, MU=MU)
+    J = extract_data(case, MU)
 
     # create a complete graph GM
     model = generate_graphical_model(case, J, H_a)
@@ -172,26 +174,6 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
     else:
         raise("Algorthim not defined")
 
-    N = len(model.variables)
-
-
-    # write results to file
-
-    # utils.append_to_csv(filename, ['CALIs','GM logZ'])
-
-            # utils.append_to_csv(filename, [index, CALI[1]] )
-    # utils.append_to_csv(filename, [init_inf[0], CALIs, logZ['logZ']])
-
-
-# plot_mu_for_BE()
-# mu_transition_plots()
-# mu = 0.0005
-# MUS = [1e-4,2e-4,4e-4,6e-4]
-# HS = [1e-2,5e-2,10e-2]
-
-# recreate_pandemy(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = 0.1, MU = mu)
-# plot_PM_vs_ratios()
-# quit()
 
 def plot_result(H_a, MU):
     for alg in ['GBR_ibound=10','GBR_ibound=20', 'MF', 'BP']:
@@ -295,7 +277,7 @@ def CALI_vs_MU(config):
     meanCALI = []
     HS = list(config.keys())
     data = {}
-    for alg in ['BE','GBR20','GBR18','BP']:
+    for alg in ['GBR20','BP']:
         data[alg] = {}
         ibound=10
         if 'GBR' in alg: ibound = int(alg[-2:])
@@ -316,38 +298,9 @@ def CALI_vs_MU(config):
     with open("./results/CALI_vs_MU.json", 'w') as outfile:
         json.dump(data, outfile)
 
-config = {
-    0.02:   np.round(np.linspace(0,6e-3, 30),7),
-    0.05:   np.round(np.linspace(0,6e-3, 30),7),
-    0.1:   np.round(np.linspace(0,6e-3, 30),7),
-    0.2:   np.round(np.linspace(0,6e-3, 30),7),
-    0.5:   np.round(np.linspace(0,6e-3, 30),7)
-}
+# number of MU
+N = 10
+mu = 6e-3
+mus = np.round(np.linspace(0,mu, N),5)
+config = {key: mus for key in [0.02, 0.05, 0.1, 0.2, 0.5]}
 CALI_vs_MU(config)
-# H_a = 0.05
-# MU = 6e-4
-# CALI = implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = H_a, MU = MU)
-# p = [logZ['marginals']['MARGINAL_V{}'.format(index)] for index in range(20) if index != 0 ]
-# print(len(CALI))
-# HS = [0.1]
-# MUS = np.round(np.linspace(0,4e-3, 30),7)
-# CALI_vs_MU(HS, MUS)
-# print("CALI vs. MU H={} complete".format(HS[0]))
-#
-# HS = [0.5]
-# MUS = np.round(np.linspace(0,8e-3, 30),7)
-# CALI_vs_MU(HS, MUS)
-# print("CALI vs. MU H={} complete".format(HS[0]))
-#
-# HS = [1.0]
-# MUS = np.round(np.linspace(0,5e-2, 30),7)
-# CALI_vs_MU(HS, MUS)
-# print("CALI vs. MU H={} complete".format(HS[0]))
-#
-# HS = [5.0]
-# MUS = np.round(np.linspace(8e-4,1e-1, 30),7)
-# CALI_vs_MU(HS, MUS)
-# print("CALI vs. MU H={} complete".format(HS[0]))
-# CALIs = implement(case = 'seattle',  init_inf = [0], H_a = 1.0, MU = 0, ibound=20, alg = 'BE')
-# print(CALIs)
-# CALI_vs_node_number(HS, MUS, init_inf)
