@@ -177,7 +177,7 @@ def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.00
     # extract data or a subset of the data
     # J = extract_data_top10(MU)
     # J = extract_data_top20(case, MU=MU)
-    file = 'seattle_20sameArea_travel_numbers.csv'
+    file = './seattle/seattle_20sameArea_travel_numbers.csv'
     J = extract_data(file, MU=MU)
     # print(np.shape(J))
 
