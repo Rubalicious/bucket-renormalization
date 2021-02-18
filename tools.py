@@ -51,7 +51,7 @@ def extract_data_top10(MU=0.002):
 
 def extract_data_top20(case, MU=0.002):
     # Read Data
-    data = pd.read_csv('./{}/{}_top20_travel_numbers.csv'.format(case, case), header=None).values
+    data = pd.read_csv('./seattle/seattle_top20_travel_numbers.csv', header=None).values
     int_data = []
     for row in data:
         int_data.append([int(entry) for entry in row])
@@ -61,9 +61,9 @@ def extract_data_top20(case, MU=0.002):
     J = data*np.log(1/(1-MU))
     return J
 
-def extract_data(case, MU=0.002):
+def extract_data(file='seattle_20sameArea_travel_numbers.csv', MU=0.002):
     # Read Data
-    data = pd.read_csv('./{}/{}_travel_numbers.csv'.format(case, case), header=None).values
+    data = pd.read_csv(file, header=None).values
     int_data = []
     for row in data:
         int_data.append([int(entry) for entry in row])
@@ -132,29 +132,7 @@ def condition_on_seeds_from(model, seed):
 
     return copy
 
-def subroutine_in_parallel(model, index, init_inf, ibound):
-    var = model.variables[index]
-    if var in init_inf:
-        return +1
-
-    conditioned_on_init_and_var = condition_on_seeds_from(model, init_inf+[var])
-    if alg == "GBR":
-        logZi = BucketRenormalization(conditioned_on_init_and_var, ibound=ibound).run()
-    elif alg == "BE":
-
-        logZi = BucketElimination(conditioned_on_init_and_var).run()
-
-    # need the edge factors connected to infected nodes
-    t0 = np.min([int(init_inf[0][1:]), int(var[1:])])
-    t1 = np.max([int(init_inf[0][1:]), int(var[1:])])
-    J_val = model.get_factor('F({},{})'.format(t0,t1)).log_values[0][0]
-
-    marg_prob = np.exp( logZi - logZ - H_a + J_val )
-    CALI = 2*marg_prob-1
-
-    return CALI
-
-def compute_marginals(model, params, alg="GBR"):
+def compute_marginals(model, params, alg='GBR'):
     init_inf, H_a, MU, ibound = params
 
     N = len(model.variables)
@@ -162,12 +140,34 @@ def compute_marginals(model, params, alg="GBR"):
     init_inf = [ith_object_name('V',var) for var in init_inf]
     conditioned_on_init = condition_on_seeds_from(model, init_inf)
 
-    if alg == "GBR":
+    if alg == 'GBR':
         logZ = BucketRenormalization(conditioned_on_init, ibound=ibound).run()
-    elif alg == "BE":
+    elif alg == 'BE':
         logZ = BucketElimination(conditioned_on_init).run()
     else:
         raise("Algorithm not defined")
+
+    def subroutine_in_parallel(model, index, init_inf, ibound):
+        var = model.variables[index]
+        if var in init_inf:
+            return +1
+
+        conditioned_on_init_and_var = condition_on_seeds_from(model, init_inf+[var])
+        if alg == "GBR":
+            logZi = BucketRenormalization(conditioned_on_init_and_var, ibound=ibound).run()
+        elif alg == "BE":
+
+            logZi = BucketElimination(conditioned_on_init_and_var).run()
+
+        # need the edge factors connected to infected nodes
+        t0 = np.min([int(init_inf[0][1:]), int(var[1:])])
+        t1 = np.max([int(init_inf[0][1:]), int(var[1:])])
+        J_val = model.get_factor('F({},{})'.format(t0,t1)).log_values[0][0]
+
+        marg_prob = np.exp( logZi - logZ - H_a + J_val )
+        CALI = 2*marg_prob-1
+
+        return CALI
 
     CALIs=Parallel(n_jobs=mp.cpu_count())(delayed(subroutine_in_parallel)(model, index, init_inf, ibound) for index in range(N))
 

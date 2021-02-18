@@ -124,66 +124,6 @@ def marg_prob_formula(H_a, MU):
     # create a complete graph GM
     model = generate_graphical_model(case, J, H_a)
 
-def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.002, ibound=10):
-    '''
-        This runs BP, MF, GBR, and BE
-    '''
-    # extract data or a subset of the data
-    # J = extract_data_top10(MU)
-    # J = extract_data_top20(case, MU=MU)
-    J = extract_data(case, MU)
-    print(np.shape(J))
-
-    # create a complete graph GM
-    model = generate_graphical_model(case, J, H_a)
-
-    # choose algorithm
-    if alg == 'BP':
-        # condition_on_seeds_from(model, init_inf)
-        init_inf = [ith_object_name('V',var) for var in init_inf]
-        conditioned_on_init = condition_on_seeds_from(model, init_inf)
-        print("before")
-        logZ = BeliefPropagation(conditioned_on_init).run(max_iter=100, converge_thr=1e-4)
-        print("after")
-        CALIs = []
-        for index in range(len(J)):
-            if ith_object_name('V',index) not in init_inf:
-                CALI = 2*logZ['marginals']['MARGINAL_V{}'.format(index)]-1
-                CALIs.append(CALI[1])
-            else:
-                CALIs.append(+1)
-        return CALIs
-        filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg, case, init_inf, H_a, MU)
-    elif alg == 'MF':
-        # condition_on_seeds_from(model, init_inf)
-        init_inf = [ith_object_name('V',var) for var in init_inf]
-        conditioned_on_init = condition_on_seeds_from(model, init_inf)
-        logZ = MeanField(conditioned_on_init).run()
-        for index in range(len(J)):
-            if ith_object_name('V',index) not in init_inf:
-                CALI = 2*logZ['marginals']['MARGINAL_V{}'.format(index)]-1
-                CALIs.append(CALI[1])
-            else:
-                CALIs.append(+1)
-        return CALIs
-    elif alg == 'GBR':
-        # approximate
-        CALIs = compute_marginals( model, (init_inf, H_a, MU, ibound), alg = alg)
-
-        # filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg+str(ibound), case, init_inf, H_a, MU)
-        # utils.append_to_csv(filename, ['CALIs','GM logZ'])
-        # utils.append_to_csv(filename, [CALIs, logZ])
-        return CALIs
-    elif alg == 'BE':
-        # exact
-        CALIs = compute_marginals( model, (init_inf, H_a, MU, ibound), alg = alg)
-        # filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg, case, init_inf, H_a, MU)
-        # utils.append_to_csv(filename, ['CALIs','GM logZ'])
-        # utils.append_to_csv(filename, [CALIs, logZ])
-        return CALIs
-    else:
-        raise("Algorthim not defined")
-
 
 def plot_result(H_a, MU):
     for alg in ['GBR_ibound=10','GBR_ibound=20', 'MF', 'BP']:
@@ -220,60 +160,6 @@ def compare_subplots():
     fig.text(0.04, 0.5, r"$\mu$", va='center', rotation='vertical')
     plt.show()
 
-def MF_1_subplots():
-    HS = [1.0]
-    MUS = [1e-4,2e-4,4e-4,6e-4]
-
-    # fig, axes = plt.subplots(4, 1, sharex=True, sharey=True)
-    # files = os.listdir('./results')
-    for alg in ['GBR_ibound=20']:
-        for i in range(len(HS)):
-            for j in range(len(MUS)):
-                data = utils.read_csv("{}_seattle_CALI_init_inf=['V0']_H_a={}_MU={}.csv".format(alg, HS[i], MUS[j]))[1:-1]
-                CALI = [float(row[-1]) for row in data]
-                # print(CALI)
-                # plt.subplot(4,1,i+j*len(HS)+1)
-                # if alg == 'GBR_ibound=20': alg = 'Exact'
-                plt.plot(range(len(CALI)), CALI, label=r"$\mu$={}".format(MUS[j]))
-
-
-                # quit()
-    plt.title(r"$H_a$={} using GBR with ibound 20".format(HS[0]))
-    plt.legend(loc='upper right')
-    plt.xlabel('node number')
-    plt.ylabel('CALI')
-    # plt.text(0.5, 0.04, r"$H_a$", ha='center')
-    # plt.text(0.04, 0.5, r"$\mu$", va='center', rotation='vertical')
-    plt.show()
-
-
-
-def CALI_vs_node_number(HS, MUS, init_inf):
-    for alg in ['BE']: # ,'GBR_ibound=20'
-        for i in range(len(HS)):
-            filename = "CALI_vs_node_number_initinf={}_H={}.csv".format(init_inf[0]+1, HS[i])
-            utils.append_to_csv(filename, ['CALIs'])
-            utils.append_to_csv(filename, list(range(1,11)))
-            for j in range(len(MUS)):
-                CALI = implement(case = 'seattle', alg = 'GBR', init_inf = init_inf, H_a = HS[i], MU = MUS[j], ibound = 20)
-                utils.append_to_csv(filename, [CALI])
-
-                # for idx,val in enumerate(CALI):
-
-                plt.plot( range(len(CALI)), CALI,'*-')
-                # continue
-                # meanCALI.append(np.mean(CALI))
-                # plt.plot(MUS[j], np.mean(CALI),'*', label=r"$\mu$={}".format(MUS[j]))
-            # plt.plot(MUS, meanCALI)
-            # plt.show()
-            plt.title(r"H_a={}, infected node {}".format(HS[i], ith_object_name('V',init_inf[0]+1)))
-            plt.xticks(range(0, len(CALI)))
-            plt.xlabel(r"node number")
-            plt.ylabel('CALI')
-            plt.axis([0, len(CALI)-1, -1.1, 1.1])
-            plt.savefig("./results/CALI_vs_node_number_initinf={}_MU_range[{},{}]_H={}.png".format(init_inf[0]+1,MUS[0],MUS[-1], HS[i]))
-            # plt.show()
-        plt.clf()
 
 def generate_data_for(H_a, MU, init_inf=[0]):
     implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = H_a, MU = MU)
@@ -283,20 +169,75 @@ def generate_data_for(H_a, MU, init_inf=[0]):
     # implement(case = 'seattle', alg = 'GBR', init_inf = [0], H_a = H_a, MU = MU, ibound = 20)
     implement(case = 'seattle', alg = 'BE', init_inf = init_inf, H_a = H_a, MU = MU)
 
+
+def implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.002, ibound=10):
+    '''
+        This runs BP, MF, GBR, and BE
+    '''
+    # extract data or a subset of the data
+    # J = extract_data_top10(MU)
+    # J = extract_data_top20(case, MU=MU)
+    file = 'seattle_20sameArea_travel_numbers.csv'
+    J = extract_data(file, MU=MU)
+    # print(np.shape(J))
+
+    # create a complete graph GM
+    model = generate_graphical_model(case, J, H_a)
+
+    # choose algorithm
+    if alg == 'BP':
+        # condition_on_seeds_from(model, init_inf)
+        init_inf = [ith_object_name('V',var) for var in init_inf]
+        conditioned_on_init = condition_on_seeds_from(model, init_inf)
+        # t1 = time.time()
+        logZ = BeliefPropagation(conditioned_on_init).run(max_iter=1000, converge_thr=1e-4)
+        # t2 = time.time()
+        CALIs = []
+        for index in range(len(J)):
+            if ith_object_name('V',index) not in init_inf:
+                CALI = 2*logZ['marginals']['MARGINAL_V{}'.format(index)]-1
+                CALIs.append(CALI[1])
+            else:
+                CALIs.append(+1)
+        return CALIs
+        # filename = "{}_{}_CALI_init_inf={}_H_a={}_MU={}.csv".format(alg, case, init_inf, H_a, MU)
+    elif alg == 'MF':
+        # condition_on_seeds_from(model, init_inf)
+        init_inf = [ith_object_name('V',var) for var in init_inf]
+        conditioned_on_init = condition_on_seeds_from(model, init_inf)
+        logZ = MeanField(conditioned_on_init).run(max_iter=1000, converge_thr=1e-4)
+        CALIs = []
+        for index in range(len(J)):
+            if ith_object_name('V',index) not in init_inf:
+                CALI = 2*logZ['marginals']['MARGINAL_V{}'.format(index)]-1
+                CALIs.append(CALI[1])
+            else:
+                CALIs.append(+1)
+        return CALIs
+    elif alg == 'GBR':
+        # approximate
+        CALIs = compute_marginals( model, (init_inf, H_a, MU, ibound), alg = alg)
+        return CALIs
+    elif alg == 'BE':
+        # exact
+        CALIs = compute_marginals( model, (init_inf, H_a, MU, ibound), alg = alg)
+        return CALIs
+    else:
+        raise("Algorthim not defined")
+
 def CALI_vs_MU(config):
     HS = list(config.keys())
     data = {}
-    for alg in ['BP','GBR20']:
+    for alg in ['MF','BP','GBR20','GBR18','BE']:
         data[alg] = {}
         ibound=10
-        if 'GBR' in alg: ibound = int(alg[-2:])
+        if 'GBR' in alg: ibound = int(alg.replace('GBR',''))
         for H in HS:
             for inf in range(20):
                 data[alg][str((H,inf+1))] = {}
                 for MU in config[H]:
-                    print("here")
+                    print(alg, H, inf, MU)
                     CALI = implement(case = 'seattle', alg = alg[:3], init_inf = [inf], H_a = H, MU = MU, ibound = ibound)
-                    print("done")
                     data[alg][str((H,inf+1))][MU] = CALI
                     plt.plot(MU*np.ones(len(CALI)), CALI, '*')
                 plt.title(r"H_a={}, infected node {}".format(H, ith_object_name('V',inf+1)))
@@ -310,10 +251,19 @@ def CALI_vs_MU(config):
         json.dump(data, outfile)
 
 # number of MU
-N = 10
-mu = 6e-5
+N = 30
+mu = 6e-4
 mus = np.round(np.linspace(0,mu, N),5)
 config = {key: mus for key in [0.02, 0.05, 0.1, 0.2, 0.5]}
-# CALI_vs_MU(config)
-CALI = implement(case = 'seattle', alg = 'BP', init_inf = [0], H_a = 0.1, MU = mu, ibound = 50)
-print(CALI)
+CALI_vs_MU(config)
+# alg = 'GBR'
+# t1 = time.time()
+# CALI = implement(case = 'seattle', alg = alg, init_inf = [0], H_a = 0.1, MU = mu, ibound = 20)
+# t2 = time.time()
+# print(CALI, alg, len(CALI), t2-t1)
+#
+# alg = 'GBR'
+# t1 = time.time()
+# CALI = implement(case = 'seattle', alg = alg, init_inf = [0], H_a = 0.1, MU = mu, ibound = 20)
+# t2 = time.time()
+# print(CALI, alg, len(CALI), t2-t1)
