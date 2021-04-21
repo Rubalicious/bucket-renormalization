@@ -176,7 +176,7 @@ def implement(alg = 'BP', init_inf = [0], H_a = 0.1, MU = 0.002, ibound=20, epsi
         This runs BP, MF, GBR, and BE on a given GM
     '''
     file = './seattle/TractTravelRawNumbers.csv'
-    file = './seattle/seattle_20sameArea_travel_numbers.csv'
+    file = './seattle/seattle_45sameArea_travel_numbers.csv'
     J = extract_data(file, MU=MU)
     # maxJ = np.max(J)
     # print(np.max(J), np.min(J))
@@ -381,16 +381,16 @@ def thresholding_experiment():
 # plt.show()
 
 # number of MU
-# N = 10
-# mu = 6e-4
-# mus = np.round(np.linspace(0,mu, N),5)
-# config = {key: mus for key in [0.02, 0.05, 0.1, 0.2, 0.5]}
-# config = {0.1: [0, 0.0025, 0.005, 0.0075, 0.01]}
-# CALI_vs_MU(config)
+N = 10
+mu = 6e-4
+mus = np.round(np.linspace(0,mu, N),5)
+config = {key: mus for key in [0.02, 0.05, 0.1, 0.2, 0.5]}
+config = {0.1: [0, 0.0025, 0.005, 0.0075, 0.01]}
+CALI_vs_MU(config)
 
 # How to Profile
-t1 = time.time()
-import cProfile
-cProfile.run("CALI = implement( alg = 'GBR', init_inf = [0], H_a = 0.1, MU = 6e-4, ibound = 20)")
-t2 = time.time()
-print(CALI, 'GBR', len(CALI), t2-t1)
+# t1 = time.time()
+# import cProfile
+# cProfile.run("CALI = implement( alg = 'GBR', init_inf = [0], H_a = 0.1, MU = 6e-4, ibound = 20)")
+# t2 = time.time()
+# print(CALI, 'GBR', len(CALI), t2-t1)
