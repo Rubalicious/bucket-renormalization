@@ -77,7 +77,7 @@ def ith_object_name(prefix, i):
 def ijth_object_name(prefix, i,j):
     return prefix + '(' + str(int(i)) + ',' + str(int(j)) + ')'
 
-def generate_graphical_model(case, J, H_a):
+def generate_graphical_model(J, H_a):
     '''
     This is done in 3 steps:
         1) add all variable names to the GM
@@ -115,14 +115,15 @@ def generate_graphical_model(case, J, H_a):
 
 def condition_on_seeds_from(model, seed):
     copy = model.copy()
-
+    # print(seed)
     healthy = [var for var in copy.variables if var not in seed]
     # modify magentic fields of neighbors of each seed
     for inf in seed:
         for sus in healthy:
             t = np.sort([int(inf[1:]), int(sus[1:])])
             fac = model.get_factor('F({},{})'.format(t[0], t[1]))
-            copy.get_factor(sus.replace('V','B')).log_values -= fac.log_values[0]
+            if fac:
+                copy.get_factor(sus.replace('V','B')).log_values -= fac.log_values[0]
 
     # remove all appropriate variables and edges
     for var in seed:
@@ -139,9 +140,14 @@ def compute_marginals(model, params, alg='GBR'):
 
     init_inf = [ith_object_name('V',var) for var in init_inf]
     conditioned_on_init = condition_on_seeds_from(model, init_inf)
+    # print('model condition on initial seed')
 
     if alg == 'GBR':
+        # print('running GBR ibound = {}'.format(ibound))
+        t1 = time.time()
         logZ = BucketRenormalization(conditioned_on_init, ibound=ibound).run()
+        t2 = time.time()
+        # print('done. time taken = {}'.format(t2-t1))
     elif alg == 'BE':
         logZ = BucketElimination(conditioned_on_init).run()
     else:

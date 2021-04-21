@@ -8,3 +8,7 @@ Goal: compute marginal probabilities that a census tract contracts the COVID-19 
 * "runpy.pbs_script" runs different experiments with various parameters.  
 * "./seattle/" contains the data related to Seattle case study and it has the compiled Java app for visualization.
 * "./wisconsin/" contains the data related to Wisconsin counties.
+
+-------
+March 22nd: current state
+"testing.py" contains updated tools of building the GM and computing CALI
